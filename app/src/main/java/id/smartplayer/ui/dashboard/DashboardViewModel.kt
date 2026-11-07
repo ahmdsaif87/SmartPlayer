@@ -20,11 +20,8 @@ import kotlinx.coroutines.launch
 
 enum class DashboardFilter {
     ALL,
-    IN_PROGRESS,
-    UNFINISHED,
     SERIES,
-    MOVIES,
-    FINISHED
+    MOVIES
 }
 
 data class DashboardUiState(
@@ -59,11 +56,8 @@ class DashboardViewModel(
             val matchesQuery = query.isBlank() || series.displayTitle.contains(query, ignoreCase = true)
             val matchesFilter = when (filter) {
                 DashboardFilter.ALL -> true
-                DashboardFilter.IN_PROGRESS -> series.finishedCount in 1 until series.episodeCount
-                DashboardFilter.UNFINISHED -> series.finishedCount < series.episodeCount
                 DashboardFilter.SERIES -> !series.isMovie
                 DashboardFilter.MOVIES -> series.isMovie
-                DashboardFilter.FINISHED -> series.isFinished
             }
             matchesQuery && matchesFilter
         }

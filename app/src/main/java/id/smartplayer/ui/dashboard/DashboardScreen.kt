@@ -349,11 +349,8 @@ fun DashboardScreen(
                 val selected = uiState.selectedFilter == filter
                 val label = when (filter) {
                     DashboardFilter.ALL -> "Semua"
-                    DashboardFilter.IN_PROGRESS -> "Sedang Ditonton"
-                    DashboardFilter.UNFINISHED -> "Belum Selesai"
                     DashboardFilter.SERIES -> "Serial"
                     DashboardFilter.MOVIES -> "Film"
-                    DashboardFilter.FINISHED -> "Selesai"
                 }
 
                 FilterChip(

@@ -19,6 +19,14 @@ enum class ResizeMode {
     STRETCH
 }
 
+data class PlayerTrackInfo(
+    val groupIndex: Int,
+    val trackIndex: Int,
+    val label: String,
+    val language: String?,
+    val isSelected: Boolean
+)
+
 data class PlayerUiState(
     val playlist: List<EpisodeRow> = emptyList(),
     val currentIndex: Int = 0,
@@ -30,10 +38,19 @@ data class PlayerUiState(
     val resizeMode: ResizeMode = ResizeMode.FIT,
     val showControls: Boolean = true,
     val isEpisodeDrawerOpen: Boolean = false,
-    val seekOverlayText: String? = null
+    val seekOverlayText: String? = null,
+    val isInPipMode: Boolean = false,
+    val audioTracks: List<PlayerTrackInfo> = emptyList(),
+    val subtitleTracks: List<PlayerTrackInfo> = emptyList(),
+    val isAudioSelectorOpen: Boolean = false,
+    val isSubtitleSelectorOpen: Boolean = false,
+    val nextEpisodeCountdown: Int? = null,
+    val isCountdownDismissed: Boolean = false
 ) {
     val currentEpisode: EpisodeRow?
         get() = playlist.getOrNull(currentIndex)
+    val nextEpisode: EpisodeRow?
+        get() = playlist.getOrNull(currentIndex + 1)
 }
 
 class PlayerViewModel(
@@ -47,6 +64,7 @@ class PlayerViewModel(
     val uiState: StateFlow<PlayerUiState> = _uiState.asStateFlow()
 
     private var tickerJob: Job? = null
+    private var countdownJob: Job? = null
 
     init {
         loadPlaylist()
@@ -78,11 +96,44 @@ class PlayerViewModel(
             currentPositionMs = positionMs,
             durationMs = durationMs
         )
+
+        // Check for Auto-play Next Episode trigger
+        val state = _uiState.value
+        val hasNext = state.nextEpisode != null
+        val nearEnd = durationMs > 30000L && positionMs >= durationMs - 12000L
+        if (hasNext && nearEnd && !state.isCountdownDismissed && state.nextEpisodeCountdown == null && countdownJob == null) {
+            startNextCountdown()
+        }
+    }
+
+    fun startNextCountdown(initialSeconds: Int = 5) {
+        countdownJob?.cancel()
+        countdownJob = viewModelScope.launch {
+            for (sec in initialSeconds downTo 0) {
+                _uiState.value = _uiState.value.copy(nextEpisodeCountdown = sec)
+                if (sec > 0) delay(1000)
+            }
+        }
+    }
+
+    fun dismissCountdown() {
+        countdownJob?.cancel()
+        countdownJob = null
+        _uiState.value = _uiState.value.copy(
+            nextEpisodeCountdown = null,
+            isCountdownDismissed = true
+        )
     }
 
     fun onEpisodeTransition(newIndex: Int) {
         persistCurrentProgress()
-        _uiState.value = _uiState.value.copy(currentIndex = newIndex)
+        countdownJob?.cancel()
+        countdownJob = null
+        _uiState.value = _uiState.value.copy(
+            currentIndex = newIndex,
+            nextEpisodeCountdown = null,
+            isCountdownDismissed = false
+        )
     }
 
     fun seekRelative(deltaMs: Long) {
@@ -95,7 +146,6 @@ class PlayerViewModel(
             seekOverlayText = text
         )
 
-        // Clear text after brief animation
         viewModelScope.launch {
             delay(700)
             if (_uiState.value.seekOverlayText == text) {
@@ -105,7 +155,7 @@ class PlayerViewModel(
     }
 
     fun toggleControls() {
-        if (!_uiState.value.isLocked) {
+        if (!_uiState.value.isLocked && !_uiState.value.isInPipMode) {
             _uiState.value = _uiState.value.copy(showControls = !_uiState.value.showControls)
         }
     }
@@ -136,11 +186,44 @@ class PlayerViewModel(
         _uiState.value = _uiState.value.copy(isEpisodeDrawerOpen = target)
     }
 
+    fun setPipMode(inPip: Boolean) {
+        _uiState.value = _uiState.value.copy(
+            isInPipMode = inPip,
+            showControls = if (inPip) false else _uiState.value.showControls
+        )
+    }
+
+    fun updateAvailableTracks(
+        audioTracks: List<PlayerTrackInfo>,
+        subtitleTracks: List<PlayerTrackInfo>
+    ) {
+        _uiState.value = _uiState.value.copy(
+            audioTracks = audioTracks,
+            subtitleTracks = subtitleTracks
+        )
+    }
+
+    fun toggleAudioSelector(open: Boolean? = null) {
+        val target = open ?: !_uiState.value.isAudioSelectorOpen
+        _uiState.value = _uiState.value.copy(
+            isAudioSelectorOpen = target,
+            isSubtitleSelectorOpen = if (target) false else _uiState.value.isSubtitleSelectorOpen
+        )
+    }
+
+    fun toggleSubtitleSelector(open: Boolean? = null) {
+        val target = open ?: !_uiState.value.isSubtitleSelectorOpen
+        _uiState.value = _uiState.value.copy(
+            isSubtitleSelectorOpen = target,
+            isAudioSelectorOpen = if (target) false else _uiState.value.isAudioSelectorOpen
+        )
+    }
+
     private fun startTicker() {
         tickerJob?.cancel()
         tickerJob = viewModelScope.launch {
             while (isActive) {
-                delay(5000) // 5s ticker per PRD §4.4
+                delay(5000)
                 persistCurrentProgress()
             }
         }
@@ -158,6 +241,7 @@ class PlayerViewModel(
     override fun onCleared() {
         super.onCleared()
         tickerJob?.cancel()
+        countdownJob?.cancel()
         persistCurrentProgress()
     }
 }

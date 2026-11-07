@@ -1,13 +1,17 @@
 package id.smartplayer.ui.player
 
 import android.app.Activity
+import android.app.PictureInPictureParams
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.media.AudioManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
+import android.provider.Settings
+import android.util.Rational
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -20,6 +24,7 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -40,28 +45,43 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.automirrored.filled.VolumeMute
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.AspectRatio
+import androidx.compose.material.icons.filled.Audiotrack
+import androidx.compose.material.icons.filled.BrightnessMedium
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PictureInPictureAlt
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.RadioButtonChecked
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.Subtitles
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -80,8 +100,11 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.common.TrackSelectionOverride
+import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.SeekParameters
@@ -91,7 +114,6 @@ import androidx.media3.ui.PlayerView
 import androidx.media3.ui.SubtitleView
 import id.smartplayer.SmartPlayerApp
 import id.smartplayer.data.db.entities.EpisodeRow
-import id.smartplayer.ui.common.VideoThumbnail
 import id.smartplayer.ui.theme.CinemaBackground
 import id.smartplayer.ui.theme.CinemaPrimary
 import id.smartplayer.ui.theme.CinemaProgressBg
@@ -101,6 +123,12 @@ import id.smartplayer.ui.theme.CinemaSurfaceVariant
 import id.smartplayer.ui.theme.CinemaTextPrimary
 import id.smartplayer.ui.theme.CinemaTextSecondary
 import kotlinx.coroutines.delay
+import kotlin.math.roundToInt
+
+sealed interface GestureHudState {
+    data class Brightness(val percent: Int) : GestureHudState
+    data class Volume(val percent: Int, val isMuted: Boolean) : GestureHudState
+}
 
 class PlayerActivity : ComponentActivity() {
 
@@ -136,13 +164,36 @@ class PlayerActivity : ComponentActivity() {
         )
 
         setContent {
-            val uiState by viewModel.uiState.collectAsState()
-
             PlayerScreen(
                 viewModel = viewModel,
-                onClose = { finish() }
+                onClose = { finish() },
+                onEnterPip = { enterPipMode() }
             )
         }
+    }
+
+    fun enterPipMode() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val params = PictureInPictureParams.Builder()
+                .setAspectRatio(Rational(16, 9))
+                .build()
+            enterPictureInPictureMode(params)
+        }
+    }
+
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if (exoPlayer?.isPlaying == true) {
+            enterPipMode()
+        }
+    }
+
+    override fun onPictureInPictureModeChanged(
+        isInPictureInPictureMode: Boolean,
+        newConfig: Configuration
+    ) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        viewModel.setPipMode(isInPictureInPictureMode)
     }
 
     private fun hideSystemBars() {
@@ -155,7 +206,6 @@ class PlayerActivity : ComponentActivity() {
 
     override fun finish() {
         super.finish()
-        // Smooth window transition on exit
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             overrideActivityTransition(Activity.OVERRIDE_TRANSITION_CLOSE, android.R.anim.fade_in, android.R.anim.fade_out)
         } else {
@@ -167,7 +217,9 @@ class PlayerActivity : ComponentActivity() {
     override fun onPause() {
         super.onPause()
         viewModel.persistCurrentProgress()
-        exoPlayer?.pause()
+        if (!isInPictureInPictureMode) {
+            exoPlayer?.pause()
+        }
     }
 
     override fun onDestroy() {
@@ -195,10 +247,28 @@ class PlayerActivity : ComponentActivity() {
 fun PlayerScreen(
     viewModel: PlayerViewModel,
     onClose: () -> Unit,
+    onEnterPip: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val activity = context as? Activity
     val uiState by viewModel.uiState.collectAsState()
+
+    val audioManager = remember { context.getSystemService(Context.AUDIO_SERVICE) as AudioManager }
+    val maxAudioVolume = remember { audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1) }
+
+    var gestureHud by remember { mutableStateOf<GestureHudState?>(null) }
+    var hudDismissEpoch by remember { mutableLongStateOf(0L) }
+
+    // Auto-dismiss gesture HUD after 1200ms
+    LaunchedEffect(gestureHud, hudDismissEpoch) {
+        if (gestureHud != null) {
+            delay(1200)
+            if (SystemClock.elapsedRealtime() >= hudDismissEpoch) {
+                gestureHud = null
+            }
+        }
+    }
 
     val exoPlayer = remember {
         ExoPlayer.Builder(context)
@@ -208,7 +278,7 @@ fun PlayerScreen(
             }
     }
 
-    // Throttled scrub seeking for ultra-smooth preview frames during tracker dragging
+    // Fast keyframe seek during tracker dragging
     var lastScrubSeekTime by remember { mutableLongStateOf(0L) }
     val onScrubSeek: (Long) -> Unit = remember(exoPlayer) {
         { targetMs ->
@@ -227,6 +297,77 @@ fun PlayerScreen(
             exoPlayer.seekTo(finalMs)
             viewModel.onPositionChanged(finalMs, exoPlayer.duration.coerceAtLeast(0L))
         }
+    }
+
+    // Helper functions for Track Extraction
+    fun refreshTracks() {
+        val tracks = exoPlayer.currentTracks
+        val isTextDisabled = exoPlayer.trackSelectionParameters.disabledTrackTypes.contains(C.TRACK_TYPE_TEXT)
+
+        // Audio
+        val audios = mutableListOf<PlayerTrackInfo>()
+        for (gIdx in 0 until tracks.groups.size) {
+            val group = tracks.groups[gIdx]
+            if (group.type == C.TRACK_TYPE_AUDIO) {
+                for (tIdx in 0 until group.length) {
+                    val format = group.getTrackFormat(tIdx)
+                    val lang = format.language
+                    val label = format.label ?: when {
+                        lang?.startsWith("ja", ignoreCase = true) == true -> "Jepang"
+                        lang?.startsWith("en", ignoreCase = true) == true -> "Inggris"
+                        lang?.startsWith("id", ignoreCase = true) == true || lang?.startsWith("in", ignoreCase = true) == true -> "Indonesia"
+                        else -> lang ?: "Audio Track ${audios.size + 1}"
+                    }
+                    audios.add(
+                        PlayerTrackInfo(
+                            groupIndex = gIdx,
+                            trackIndex = tIdx,
+                            label = label,
+                            language = lang,
+                            isSelected = group.isTrackSelected(tIdx)
+                        )
+                    )
+                }
+            }
+        }
+
+        // Subtitles
+        val subs = mutableListOf<PlayerTrackInfo>()
+        subs.add(
+            PlayerTrackInfo(
+                groupIndex = -1,
+                trackIndex = -1,
+                label = "Nonaktifkan Subtitle (Mati)",
+                language = null,
+                isSelected = isTextDisabled
+            )
+        )
+        for (gIdx in 0 until tracks.groups.size) {
+            val group = tracks.groups[gIdx]
+            if (group.type == C.TRACK_TYPE_TEXT) {
+                for (tIdx in 0 until group.length) {
+                    val format = group.getTrackFormat(tIdx)
+                    val lang = format.language
+                    val label = format.label ?: when {
+                        lang?.startsWith("id", ignoreCase = true) == true || lang?.startsWith("in", ignoreCase = true) == true -> "Indonesia"
+                        lang?.startsWith("en", ignoreCase = true) == true -> "Inggris"
+                        lang?.startsWith("ja", ignoreCase = true) == true -> "Jepang"
+                        else -> lang ?: "Subtitle ${subs.size}"
+                    }
+                    subs.add(
+                        PlayerTrackInfo(
+                            groupIndex = gIdx,
+                            trackIndex = tIdx,
+                            label = label,
+                            language = lang,
+                            isSelected = !isTextDisabled && group.isTrackSelected(tIdx)
+                        )
+                    )
+                }
+            }
+        }
+
+        viewModel.updateAvailableTracks(audios, subs)
     }
 
     // Bind playlist
@@ -265,6 +406,16 @@ fun PlayerScreen(
         }
     }
 
+    // Auto-advance when countdown reaches 0
+    LaunchedEffect(uiState.nextEpisodeCountdown) {
+        if (uiState.nextEpisodeCountdown == 0) {
+            if (exoPlayer.hasNextMediaItem()) {
+                exoPlayer.seekToNextMediaItem()
+            }
+            viewModel.dismissCountdown()
+        }
+    }
+
     // Player listener
     DisposableEffect(exoPlayer) {
         val listener = object : Player.Listener {
@@ -275,6 +426,18 @@ fun PlayerScreen(
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 viewModel.onEpisodeTransition(exoPlayer.currentMediaItemIndex)
             }
+
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                if (playbackState == Player.STATE_ENDED) {
+                    if (exoPlayer.hasNextMediaItem() && !uiState.isCountdownDismissed) {
+                        viewModel.startNextCountdown(initialSeconds = 3)
+                    }
+                }
+            }
+
+            override fun onTracksChanged(tracks: Tracks) {
+                refreshTracks()
+            }
         }
         exoPlayer.addListener(listener)
 
@@ -284,11 +447,18 @@ fun PlayerScreen(
         }
     }
 
+    // Touch gesture state holders
+    var isLeftSwipe by remember { mutableStateOf(false) }
+    var currentBrightnessRatio by remember { mutableFloatStateOf(0.5f) }
+    var currentVolumeRatio by remember { mutableFloatStateOf(0.5f) }
+
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(Color.Black)
-            .pointerInput(uiState.isLocked) {
+            // Tap and double tap gestures
+            .pointerInput(uiState.isLocked, uiState.isInPipMode) {
+                if (uiState.isInPipMode) return@pointerInput
                 detectTapGestures(
                     onTap = { viewModel.toggleControls() },
                     onDoubleTap = { offset ->
@@ -311,6 +481,58 @@ fun PlayerScreen(
                     }
                 )
             }
+            // Vertical Drag Gesture for Brightness (Left) & Volume (Right)
+            .pointerInput(uiState.isLocked, uiState.isInPipMode) {
+                if (uiState.isLocked || uiState.isInPipMode) return@pointerInput
+                detectVerticalDragGestures(
+                    onDragStart = { offset ->
+                        isLeftSwipe = offset.x < size.width / 2f
+                        if (isLeftSwipe) {
+                            val lp = activity?.window?.attributes
+                            val cur = lp?.screenBrightness ?: -1f
+                            currentBrightnessRatio = if (cur >= 0f) cur else {
+                                try {
+                                    Settings.System.getInt(context.contentResolver, Settings.System.SCREEN_BRIGHTNESS) / 255f
+                                } catch (e: Exception) {
+                                    0.5f
+                                }
+                            }
+                        } else {
+                            val vol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+                            currentVolumeRatio = vol.toFloat() / maxAudioVolume
+                        }
+                    },
+                    onVerticalDrag = { change, dragAmount ->
+                        change.consume()
+                        // Drag up is negative dragAmount -> increase
+                        val deltaRatio = -dragAmount / size.height * 1.5f
+                        if (isLeftSwipe) {
+                            currentBrightnessRatio = (currentBrightnessRatio + deltaRatio).coerceIn(0.01f, 1f)
+                            val lp = activity?.window?.attributes
+                            if (lp != null) {
+                                lp.screenBrightness = currentBrightnessRatio
+                                activity.window.attributes = lp
+                            }
+                            val pct = (currentBrightnessRatio * 100).roundToInt()
+                            gestureHud = GestureHudState.Brightness(pct)
+                            hudDismissEpoch = SystemClock.elapsedRealtime() + 1200L
+                        } else {
+                            currentVolumeRatio = (currentVolumeRatio + deltaRatio).coerceIn(0f, 1f)
+                            val targetVol = (currentVolumeRatio * maxAudioVolume).roundToInt()
+                            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, targetVol, 0)
+                            val pct = (currentVolumeRatio * 100).roundToInt()
+                            gestureHud = GestureHudState.Volume(pct, isMuted = targetVol == 0)
+                            hudDismissEpoch = SystemClock.elapsedRealtime() + 1200L
+                        }
+                    },
+                    onDragEnd = {
+                        hudDismissEpoch = SystemClock.elapsedRealtime() + 1200L
+                    },
+                    onDragCancel = {
+                        gestureHud = null
+                    }
+                )
+            }
     ) {
         // Video Surface
         AndroidView(
@@ -328,12 +550,12 @@ fun PlayerScreen(
                     subtitleView?.apply {
                         setStyle(
                             CaptionStyleCompat(
-                                /* foregroundColor = */ android.graphics.Color.WHITE,
-                                /* backgroundColor = */ android.graphics.Color.TRANSPARENT,
-                                /* windowColor = */ android.graphics.Color.TRANSPARENT,
-                                /* edgeType = */ CaptionStyleCompat.EDGE_TYPE_OUTLINE,
-                                /* edgeColor = */ android.graphics.Color.argb(220, 0, 0, 0),
-                                /* typeface = */ null
+                                android.graphics.Color.WHITE,
+                                android.graphics.Color.TRANSPARENT,
+                                android.graphics.Color.TRANSPARENT,
+                                CaptionStyleCompat.EDGE_TYPE_OUTLINE,
+                                android.graphics.Color.argb(220, 0, 0, 0),
+                                null
                             )
                         )
                         setApplyEmbeddedStyles(false)
@@ -349,28 +571,12 @@ fun PlayerScreen(
                     ResizeMode.ZOOM -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
                     ResizeMode.STRETCH -> AspectRatioFrameLayout.RESIZE_MODE_FILL
                 }
-                view.subtitleView?.apply {
-                    setStyle(
-                        CaptionStyleCompat(
-                            android.graphics.Color.WHITE,
-                            android.graphics.Color.TRANSPARENT,
-                            android.graphics.Color.TRANSPARENT,
-                            CaptionStyleCompat.EDGE_TYPE_OUTLINE,
-                            android.graphics.Color.argb(220, 0, 0, 0),
-                            null
-                        )
-                    )
-                    setApplyEmbeddedStyles(false)
-                    setApplyEmbeddedFontSizes(false)
-                    setFractionalTextSize(SubtitleView.DEFAULT_TEXT_SIZE_FRACTION * 0.92f)
-                    setBottomPaddingFraction(0.06f)
-                }
             },
             modifier = Modifier.fillMaxSize()
         )
 
-        // Seek HUD Bubble Animation
-        if (uiState.seekOverlayText != null) {
+        // Seek HUD Bubble Animation (+10s / -10s)
+        if (uiState.seekOverlayText != null && !uiState.isInPipMode) {
             Box(
                 modifier = Modifier
                     .size(90.dp)
@@ -387,9 +593,141 @@ fun PlayerScreen(
             }
         }
 
+        // Gesture HUD Overlay (Brightness on Left, Volume on Right)
+        if (gestureHud != null && !uiState.isInPipMode) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 48.dp),
+                contentAlignment = if (gestureHud is GestureHudState.Brightness) Alignment.CenterStart else Alignment.CenterEnd
+            ) {
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xCC15151E)),
+                    modifier = Modifier
+                        .width(130.dp)
+                        .padding(8.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        when (val hud = gestureHud!!) {
+                            is GestureHudState.Brightness -> {
+                                Icon(
+                                    imageVector = Icons.Default.BrightnessMedium,
+                                    contentDescription = "Kecerahan",
+                                    tint = CinemaPrimary,
+                                    modifier = Modifier.size(32.dp)
+                                )
+                                Text(
+                                    text = "${hud.percent}%",
+                                    color = Color.White,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                LinearProgressIndicator(
+                                    progress = { hud.percent / 100f },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(4.dp),
+                                    color = CinemaPrimary,
+                                    trackColor = CinemaProgressBg
+                                )
+                            }
+                            is GestureHudState.Volume -> {
+                                Icon(
+                                    imageVector = if (hud.isMuted) Icons.AutoMirrored.Filled.VolumeMute else Icons.AutoMirrored.Filled.VolumeUp,
+                                    contentDescription = "Volume",
+                                    tint = CinemaPrimary,
+                                    modifier = Modifier.size(32.dp)
+                                )
+                                Text(
+                                    text = "${hud.percent}%",
+                                    color = Color.White,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                LinearProgressIndicator(
+                                    progress = { hud.percent / 100f },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(4.dp),
+                                    color = CinemaPrimary,
+                                    trackColor = CinemaProgressBg
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Auto-Play Next Episode Floating Card (ala Netflix)
+        if (uiState.nextEpisodeCountdown != null && uiState.nextEpisode != null && !uiState.isInPipMode) {
+            val nextEp = uiState.nextEpisode!!
+            Card(
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xEE15151E)),
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 24.dp, bottom = 80.dp)
+                    .width(320.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Episode Berikutnya",
+                        color = CinemaTextSecondary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = if (nextEp.episodeNumber != null) "Episode ${nextEp.episodeNumber} — ${nextEp.displayName}" else nextEp.displayName,
+                        color = Color.White,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Putar otomatis dalam ${uiState.nextEpisodeCountdown} detik",
+                        color = CinemaPrimary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TextButton(onClick = { viewModel.dismissCountdown() }) {
+                            Text("Batal", color = CinemaTextSecondary, fontSize = 13.sp)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(
+                            onClick = {
+                                if (exoPlayer.hasNextMediaItem()) {
+                                    exoPlayer.seekToNextMediaItem()
+                                }
+                                viewModel.dismissCountdown()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = CinemaPrimary),
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Text("Putar Sekarang", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+
         // Overlay Controls
         AnimatedVisibility(
-            visible = uiState.showControls && !uiState.isLocked,
+            visible = uiState.showControls && !uiState.isLocked && !uiState.isInPipMode,
             enter = fadeIn(),
             exit = fadeOut(),
             modifier = Modifier.fillMaxSize()
@@ -397,6 +735,7 @@ fun PlayerScreen(
             PlayerOverlayControls(
                 uiState = uiState,
                 onClose = onClose,
+                onEnterPip = onEnterPip,
                 onPlayPauseToggle = {
                     if (exoPlayer.isPlaying) exoPlayer.pause() else exoPlayer.play()
                 },
@@ -407,12 +746,14 @@ fun PlayerScreen(
                 onToggleLock = { viewModel.toggleLock() },
                 onSpeedChange = { viewModel.setPlaybackSpeed(it) },
                 onToggleResize = { viewModel.toggleResizeMode() },
-                onToggleEpisodes = { viewModel.toggleEpisodeDrawer() }
+                onToggleEpisodes = { viewModel.toggleEpisodeDrawer() },
+                onOpenAudioSelector = { viewModel.toggleAudioSelector(true) },
+                onOpenSubtitleSelector = { viewModel.toggleSubtitleSelector(true) }
             )
         }
 
         // Locked HUD Button
-        if (uiState.isLocked) {
+        if (uiState.isLocked && !uiState.isInPipMode) {
             IconButton(
                 onClick = { viewModel.toggleLock() },
                 modifier = Modifier
@@ -432,7 +773,7 @@ fun PlayerScreen(
 
         // Netflix-Style Slide-over In-Player Episode Drawer
         AnimatedVisibility(
-            visible = uiState.isEpisodeDrawerOpen,
+            visible = uiState.isEpisodeDrawerOpen && !uiState.isInPipMode,
             enter = slideInHorizontally(initialOffsetX = { it }),
             exit = slideOutHorizontally(targetOffsetX = { it }),
             modifier = Modifier.align(Alignment.CenterEnd)
@@ -447,13 +788,142 @@ fun PlayerScreen(
                 onClose = { viewModel.toggleEpisodeDrawer(false) }
             )
         }
+
+        // Audio Track Selector Dialog
+        if (uiState.isAudioSelectorOpen && !uiState.isInPipMode) {
+            TrackSelectionDialog(
+                title = "Pilih Trek Audio",
+                tracks = uiState.audioTracks,
+                onSelect = { track ->
+                    val group = exoPlayer.currentTracks.groups.getOrNull(track.groupIndex)
+                    if (group != null) {
+                        exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters
+                            .buildUpon()
+                            .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, track.trackIndex))
+                            .build()
+                        refreshTracks()
+                    }
+                    viewModel.toggleAudioSelector(false)
+                },
+                onDismiss = { viewModel.toggleAudioSelector(false) }
+            )
+        }
+
+        // Subtitle Track Selector Dialog
+        if (uiState.isSubtitleSelectorOpen && !uiState.isInPipMode) {
+            TrackSelectionDialog(
+                title = "Pilih Trek Subtitle",
+                tracks = uiState.subtitleTracks,
+                onSelect = { track ->
+                    if (track.groupIndex == -1) {
+                        exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters
+                            .buildUpon()
+                            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                            .build()
+                    } else {
+                        val group = exoPlayer.currentTracks.groups.getOrNull(track.groupIndex)
+                        if (group != null) {
+                            exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters
+                                .buildUpon()
+                                .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                                .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, track.trackIndex))
+                                .build()
+                        }
+                    }
+                    refreshTracks()
+                    viewModel.toggleSubtitleSelector(false)
+                },
+                onDismiss = { viewModel.toggleSubtitleSelector(false) }
+            )
+        }
     }
+}
+
+@Composable
+private fun TrackSelectionDialog(
+    title: String,
+    tracks: List<PlayerTrackInfo>,
+    onSelect: (PlayerTrackInfo) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = title,
+                color = Color.White,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            if (tracks.isEmpty()) {
+                Text(
+                    text = "Tidak ada trek tambahan yang tersedia.",
+                    color = CinemaTextSecondary,
+                    fontSize = 14.sp
+                )
+            } else {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    itemsIndexed(tracks) { _, track ->
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onSelect(track) },
+                            shape = RoundedCornerShape(8.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (track.isSelected) CinemaPrimary.copy(alpha = 0.25f) else CinemaSurfaceVariant
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = if (track.isSelected) Icons.Default.RadioButtonChecked else Icons.Default.RadioButtonUnchecked,
+                                    contentDescription = null,
+                                    tint = if (track.isSelected) CinemaPrimary else CinemaTextSecondary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Column {
+                                    Text(
+                                        text = track.label,
+                                        color = if (track.isSelected) Color.White else CinemaTextPrimary,
+                                        fontWeight = if (track.isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        fontSize = 14.sp
+                                    )
+                                    if (track.language != null && track.language != track.label) {
+                                        Text(
+                                            text = track.language.uppercase(),
+                                            color = CinemaTextSecondary,
+                                            fontSize = 11.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Tutup", color = CinemaSecondary)
+            }
+        },
+        containerColor = CinemaSurface,
+        shape = RoundedCornerShape(16.dp)
+    )
 }
 
 @Composable
 private fun PlayerOverlayControls(
     uiState: PlayerUiState,
     onClose: () -> Unit,
+    onEnterPip: () -> Unit,
     onPlayPauseToggle: () -> Unit,
     onScrubSeek: (Long) -> Unit,
     onScrubFinished: (Long) -> Unit,
@@ -462,13 +932,14 @@ private fun PlayerOverlayControls(
     onToggleLock: () -> Unit,
     onSpeedChange: (Float) -> Unit,
     onToggleResize: () -> Unit,
-    onToggleEpisodes: () -> Unit
+    onToggleEpisodes: () -> Unit,
+    onOpenAudioSelector: () -> Unit,
+    onOpenSubtitleSelector: () -> Unit
 ) {
     val current = uiState.currentEpisode
     val pos = uiState.currentPositionMs
     val dur = uiState.durationMs
 
-    // Local dragging state for ultra-smooth 60/120fps slider motion
     var isDragging by remember { mutableStateOf(false) }
     var dragFraction by remember { mutableFloatStateOf(0f) }
 
@@ -484,7 +955,7 @@ private fun PlayerOverlayControls(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 16.dp)
+                .padding(horizontal = 24.dp, vertical = 14.dp)
                 .align(Alignment.TopCenter),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
@@ -511,11 +982,46 @@ private fun PlayerOverlayControls(
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.fillMaxWidth(0.6f)
+                    modifier = Modifier.fillMaxWidth(0.5f)
                 )
             }
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            // Top action buttons: PiP, Audio, Subtitle, Aspect Ratio
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // PiP Button
+                IconButton(onClick = onEnterPip) {
+                    Icon(
+                        imageVector = Icons.Default.PictureInPictureAlt,
+                        contentDescription = "Picture in Picture",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                // Audio Track selector
+                IconButton(onClick = onOpenAudioSelector) {
+                    Icon(
+                        imageVector = Icons.Default.Audiotrack,
+                        contentDescription = "Pilih Audio",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                // Subtitle Track selector
+                IconButton(onClick = onOpenSubtitleSelector) {
+                    Icon(
+                        imageVector = Icons.Default.Subtitles,
+                        contentDescription = "Pilih Subtitle",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                // Aspect ratio toggle
                 IconButton(onClick = onToggleResize) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
