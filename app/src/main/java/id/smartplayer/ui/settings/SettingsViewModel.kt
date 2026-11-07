@@ -12,6 +12,12 @@ class SettingsViewModel(
 ) : ViewModel() {
 
     val scanState: StateFlow<ScanState> = libraryRepository.scanState
+    val excludeCamera: StateFlow<Boolean> = settingsRepository.excludeCamera
+
+    fun setExcludeCamera(enabled: Boolean) {
+        settingsRepository.setExcludeCamera(enabled)
+        triggerRescan()
+    }
 
     fun triggerRescan() {
         libraryRepository.requestScan()

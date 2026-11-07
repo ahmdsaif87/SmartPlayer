@@ -27,6 +27,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -110,6 +112,42 @@ fun SettingsScreen(
                 Text(text = "• /Movies", color = CinemaTextSecondary, fontSize = 12.sp)
                 Text(text = "• /Video & /Videos", color = CinemaTextSecondary, fontSize = 12.sp)
                 Text(text = "• /DCIM", color = CinemaTextSecondary, fontSize = 12.sp)
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                val excludeCamera by viewModel.excludeCamera.collectAsState()
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Abaikan Rekaman Kamera & WA",
+                            color = CinemaTextPrimary,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "Sembunyikan rekaman dari folder DCIM/Camera dan WhatsApp agar pustaka fokus pada serial & film.",
+                            color = CinemaTextSecondary,
+                            fontSize = 12.sp,
+                            lineHeight = 16.sp
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Switch(
+                        checked = excludeCamera,
+                        onCheckedChange = { viewModel.setExcludeCamera(it) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.White,
+                            checkedTrackColor = CinemaPrimary,
+                            uncheckedThumbColor = CinemaTextSecondary,
+                            uncheckedTrackColor = CinemaSurfaceVariant
+                        )
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(16.dp))
 

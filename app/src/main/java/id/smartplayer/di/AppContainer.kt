@@ -44,6 +44,7 @@ class AppContainer(private val context: Context) {
             scanner = scanner,
             database = database,
             parser = parser,
+            settingsRepository = settingsRepository,
             externalScope = applicationScope
         )
     }

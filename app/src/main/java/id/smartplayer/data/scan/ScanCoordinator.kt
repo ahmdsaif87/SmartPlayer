@@ -9,6 +9,7 @@ import id.smartplayer.data.db.entities.SeriesEntity
 import id.smartplayer.data.parse.DefaultFilenameParser
 import id.smartplayer.data.parse.FilenameParser
 import id.smartplayer.data.parse.SeriesKeyFactory
+import id.smartplayer.data.repo.SettingsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -25,6 +26,7 @@ class ScanCoordinator(
     private val scanner: MediaStoreScanner,
     private val database: AppDatabase,
     private val parser: FilenameParser = DefaultFilenameParser(),
+    private val settingsRepository: SettingsRepository? = null,
     private val externalScope: CoroutineScope = CoroutineScope(Dispatchers.IO)
 ) {
     private val mutex = Mutex()
@@ -50,7 +52,8 @@ class ScanCoordinator(
 
     private suspend fun runScan() = withContext(Dispatchers.IO) {
         try {
-            val rawFiles = scanner.scan()
+            val excludeCamera = settingsRepository?.excludeCamera?.value ?: true
+            val rawFiles = scanner.scan(excludeCamera)
             val total = rawFiles.size
             _scanState.value = ScanState.Scanning(0, total)
 

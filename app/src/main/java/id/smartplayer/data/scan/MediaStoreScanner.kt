@@ -13,7 +13,7 @@ class MediaStoreScanner(private val context: Context) {
 
     private val contentResolver: ContentResolver get() = context.contentResolver
 
-    suspend fun scan(): List<RawMediaFile> = withContext(Dispatchers.IO) {
+    suspend fun scan(excludeCamera: Boolean = true): List<RawMediaFile> = withContext(Dispatchers.IO) {
         val result = mutableListOf<RawMediaFile>()
         val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
@@ -105,6 +105,11 @@ class MediaStoreScanner(private val context: Context) {
                     val dateModified = cursor.getLong(dateModCol)
                     val absolutePath = cursor.getString(dataCol) ?: ""
                     val relativePath = if (relPathCol >= 0) cursor.getString(relPathCol) ?: "" else ""
+
+                    if (excludeCamera && isCameraOrNonMedia(displayName, relativePath, absolutePath)) {
+                        continue
+                    }
+
                     val contentUri = ContentUris.withAppendedId(collection, id).toString()
 
                     result.add(
@@ -122,12 +127,30 @@ class MediaStoreScanner(private val context: Context) {
                     )
                 }
             }
-            Log.d("SmartPlayer", "MediaStoreScanner queried successfully, found ${result.size} raw videos")
+            Log.d("SmartPlayer", "MediaStoreScanner queried successfully, found ${result.size} raw videos (excludeCamera=$excludeCamera)")
         } catch (e: Exception) {
             Log.e("SmartPlayer", "Error querying MediaStore", e)
             throw e
         }
 
         result
+    }
+
+    private fun isCameraOrNonMedia(displayName: String, relativePath: String, absolutePath: String): Boolean {
+        val path = (if (relativePath.isNotEmpty()) relativePath else absolutePath).replace('\\', '/')
+
+        val inCameraOrJunkFolder = path.contains("DCIM/Camera", ignoreCase = true) ||
+                path.contains("DCIM/WhatsApp", ignoreCase = true) ||
+                path.contains("DCIM/Screenshots", ignoreCase = true) ||
+                path.contains("DCIM/Screen recorder", ignoreCase = true) ||
+                path.contains("Pictures/Screenshots", ignoreCase = true) ||
+                path.contains("WhatsApp/Media", ignoreCase = true) ||
+                path.contains("com.whatsapp", ignoreCase = true)
+
+        val matchesCameraPattern = displayName.matches(
+            Regex("""^(?:20\d{6}_\d{6}|VID[_-]\d{8}[_-]\d{6}|WA[_-]?\d+|\d{8}[_-]\d{6}|Screen_Recording_\d+).*\.(?:mp4|mkv|webm)$""", RegexOption.IGNORE_CASE)
+        )
+
+        return inCameraOrJunkFolder || matchesCameraPattern
     }
 }
