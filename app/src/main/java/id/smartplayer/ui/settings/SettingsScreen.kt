@@ -14,6 +14,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -73,7 +79,12 @@ fun SettingsScreen(
             modifier = Modifier.fillMaxWidth()
         ) {
             IconButton(onClick = onBackClick) {
-                Text(text = "←", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Kembali",
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
             }
             Spacer(modifier = Modifier.width(8.dp))
             Text(
@@ -146,17 +157,30 @@ fun SettingsScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(
-                        text = saveFeedback,
-                        color = Color(0xFF22C55E),
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium
-                    )
+                    if (saveFeedback.isNotEmpty()) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = null,
+                                tint = Color(0xFF22C55E),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = saveFeedback,
+                                color = Color(0xFF22C55E),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    } else {
+                        Spacer(modifier = Modifier.width(1.dp))
+                    }
 
                     Button(
                         onClick = {
                             viewModel.saveApiKey(inputKey)
-                            saveFeedback = "Tersimpan ✓"
+                            saveFeedback = "Tersimpan"
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = CinemaPrimary),
                         shape = RoundedCornerShape(8.dp)
@@ -286,7 +310,16 @@ fun SettingsScreen(
                         val s = scanState as ScanState.Scanning
                         Text(text = "Sedang Memindai (${s.processed}/${s.total})...", color = Color.White, fontSize = 13.sp)
                     } else {
-                        Text(text = "🔄  Pindai Ulang Penyimpanan Sekarang", color = Color.White, fontSize = 13.sp)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(text = "Pindai Ulang Penyimpanan Sekarang", color = Color.White, fontSize = 13.sp)
+                        }
                     }
                 }
 
@@ -294,20 +327,38 @@ fun SettingsScreen(
 
                 when (val state = scanState) {
                     is ScanState.Done -> {
-                        Text(
-                            text = "✓ Selesai: ${state.added} baru ditambahkan, ${state.updated} diperbarui.",
-                            color = Color(0xFF22C55E),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = Color(0xFF22C55E),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Selesai: ${state.added} baru ditambahkan, ${state.updated} diperbarui.",
+                                color = Color(0xFF22C55E),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
                     }
                     is ScanState.Error -> {
-                        Text(
-                            text = "⚠️ Gagal: ${state.cause.localizedMessage}",
-                            color = Color(0xFFEF4444),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Warning,
+                                contentDescription = null,
+                                tint = Color(0xFFEF4444),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Gagal: ${state.cause.localizedMessage}",
+                                color = Color(0xFFEF4444),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
                     }
                     else -> {}
                 }

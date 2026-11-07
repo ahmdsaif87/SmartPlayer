@@ -18,6 +18,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -113,7 +117,12 @@ fun SeriesDetailScreen(
                         .padding(16.dp)
                         .background(Color(0x66000000), RoundedCornerShape(20.dp))
                 ) {
-                    Text(text = "←", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Kembali",
+                        tint = Color.White,
+                        modifier = Modifier.size(22.dp)
+                    )
                 }
             }
         }
@@ -171,9 +180,9 @@ fun SeriesDetailScreen(
                 // Netflix-Style Primary CTA Button
                 if (resumeTarget != null) {
                     val ctaText = when {
-                        resumeTarget.isFinished -> "▶  Tonton Ulang (Eps 1)"
-                        (resumeTarget.resumePositionMs ?: 0L) > 5000L -> "▶  Lanjutkan Nonton (Eps ${resumeTarget.episodeNumber ?: 1})"
-                        else -> "▶  Mulai Nonton (Eps ${resumeTarget.episodeNumber ?: 1})"
+                        resumeTarget.isFinished -> "Tonton Ulang (Eps 1)"
+                        (resumeTarget.resumePositionMs ?: 0L) > 5000L -> "Lanjutkan Nonton (Eps ${resumeTarget.episodeNumber ?: 1})"
+                        else -> "Mulai Nonton (Eps ${resumeTarget.episodeNumber ?: 1})"
                     }
 
                     Button(
@@ -184,12 +193,24 @@ fun SeriesDetailScreen(
                             .fillMaxWidth()
                             .height(48.dp)
                     ) {
-                        Text(
-                            text = ctaText,
-                            color = Color.White,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PlayArrow,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = ctaText,
+                                color = Color.White,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
 
@@ -260,11 +281,15 @@ private fun EpisodeItemRow(
                         modifier = Modifier
                             .size(20.dp)
                             .background(Color(0xCC22C55E), RoundedCornerShape(4.dp))
-                            .align(Alignment.TopEnd)
-                            .padding(2.dp),
+                            .align(Alignment.TopEnd),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(text = "✓", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = "Selesai",
+                            tint = Color.White,
+                            modifier = Modifier.size(14.dp)
+                        )
                     }
                 } else if ((episode.resumePositionMs ?: 0L) > 5000L) {
                     val progress = if (episode.durationMs > 0) {

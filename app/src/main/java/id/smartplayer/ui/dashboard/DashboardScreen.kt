@@ -28,6 +28,16 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -43,6 +53,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -60,6 +71,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import id.smartplayer.data.db.entities.EpisodeRow
 import id.smartplayer.data.db.entities.SeriesSummary
 import id.smartplayer.data.scan.ScanState
@@ -116,13 +128,28 @@ fun DashboardScreen(
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = { isSearchExpanded = true }) {
-                        Text(text = "🔍", fontSize = 18.sp)
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "Cari",
+                            tint = Color.White,
+                            modifier = Modifier.size(22.dp)
+                        )
                     }
                     IconButton(onClick = { viewModel.requestRescan() }) {
-                        Text(text = "🔄", fontSize = 18.sp)
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Pindai Ulang",
+                            tint = Color.White,
+                            modifier = Modifier.size(22.dp)
+                        )
                     }
                     IconButton(onClick = onSettingsClick) {
-                        Text(text = "⚙️", fontSize = 18.sp)
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Pengaturan",
+                            tint = Color.White,
+                            modifier = Modifier.size(22.dp)
+                        )
                     }
                 }
             } else {
@@ -147,7 +174,12 @@ fun DashboardScreen(
                             viewModel.onSearchQueryChanged("")
                             isSearchExpanded = false
                         }) {
-                            Text(text = "✕", color = CinemaTextSecondary, fontSize = 16.sp)
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Tutup Pencarian",
+                                tint = CinemaTextSecondary,
+                                modifier = Modifier.size(20.dp)
+                            )
                         }
                     },
                     modifier = Modifier.fillMaxWidth()
@@ -156,76 +188,135 @@ fun DashboardScreen(
         }
 
         // --- Live Scan Status Feedback Banner ---
-        when (val scan = uiState.scanState) {
-            is ScanState.Scanning -> {
-                val progress = if (scan.total > 0) scan.processed.toFloat() / scan.total else 0f
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFF1E293B))
-                ) {
+        var isScanBannerDismissed by remember(uiState.scanState) { mutableStateOf(false) }
+
+        LaunchedEffect(uiState.scanState) {
+            if (uiState.scanState is ScanState.Done) {
+                delay(6000)
+                isScanBannerDismissed = true
+            }
+        }
+
+        if (!isScanBannerDismissed) {
+            when (val scan = uiState.scanState) {
+                is ScanState.Scanning -> {
+                    val progress = if (scan.total > 0) scan.processed.toFloat() / scan.total else 0f
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFF1E293B))
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            CircularProgressIndicator(
+                                color = CinemaPrimary,
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = "Memindai video lokal (${scan.processed}/${scan.total})...",
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                        LinearProgressIndicator(
+                            progress = { progress },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(2.dp),
+                            color = CinemaPrimary,
+                            trackColor = CinemaProgressBg
+                        )
+                    }
+                }
+                is ScanState.Done -> {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                            .background(Color(0xFF14532D))
+                            .padding(horizontal = 16.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        CircularProgressIndicator(
-                            color = CinemaPrimary,
-                            modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            text = "Memindai video lokal (${scan.processed}/${scan.total})...",
-                            color = Color.White,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = Color(0xFF4ADE80),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Pemindaian selesai (${scan.added} baru, ${scan.updated} diperbarui).",
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                        IconButton(
+                            onClick = { isScanBannerDismissed = true },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Tutup notifikasi",
+                                tint = Color.White.copy(alpha = 0.8f),
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
                     }
-                    LinearProgressIndicator(
-                        progress = { progress },
+                }
+                is ScanState.Error -> {
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(2.dp),
-                        color = CinemaPrimary,
-                        trackColor = CinemaProgressBg
-                    )
+                            .background(Color(0xFF7F1D1D))
+                            .padding(horizontal = 16.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ErrorOutline,
+                                contentDescription = null,
+                                tint = Color(0xFFF87171),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Gagal memindai: ${scan.cause.localizedMessage}",
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                        IconButton(
+                            onClick = { isScanBannerDismissed = true },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Tutup notifikasi",
+                                tint = Color.White.copy(alpha = 0.8f),
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
                 }
+                else -> {}
             }
-            is ScanState.Done -> {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFF14532D))
-                        .padding(horizontal = 16.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "✓ Pemindaian selesai (${scan.added} baru, ${scan.updated} diperbarui).",
-                        color = Color.White,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            }
-            is ScanState.Error -> {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFF7F1D1D))
-                        .padding(horizontal = 16.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "⚠️ Gagal memindai: ${scan.cause.localizedMessage}",
-                        color = Color.White,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            }
-            else -> {}
         }
 
         // --- YouTube-Style Category Filter Pills ---
@@ -359,7 +450,12 @@ private fun ContinueWatchingCard(
                         .align(Alignment.Center),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(text = "▶", color = Color.White, fontSize = 14.sp)
+                    Icon(
+                        imageVector = Icons.Default.PlayArrow,
+                        contentDescription = "Putar",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
 
                 // Episode progress bar at bottom of card
@@ -464,18 +560,29 @@ private fun SeriesCard(
                     lineHeight = 18.sp
                 )
                 Spacer(modifier = Modifier.height(4.dp))
-                val subtitle = if (series.isFinished) {
-                    "✓ Selesai ditonton"
-                } else if (series.finishedCount > 0) {
-                    "${series.finishedCount}/${series.episodeCount} ditonton"
-                } else {
-                    "${series.episodeCount} episode"
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (series.isFinished) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = null,
+                            tint = Color(0xFF22C55E),
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Spacer(modifier = Modifier.width(3.dp))
+                    }
+                    val subtitle = if (series.isFinished) {
+                        "Selesai ditonton"
+                    } else if (series.finishedCount > 0) {
+                        "${series.finishedCount}/${series.episodeCount} ditonton"
+                    } else {
+                        "${series.episodeCount} episode"
+                    }
+                    Text(
+                        text = subtitle,
+                        color = if (series.isFinished) Color(0xFF22C55E) else CinemaTextSecondary,
+                        fontSize = 11.sp
+                    )
                 }
-                Text(
-                    text = subtitle,
-                    color = if (series.isFinished) Color(0xFF22C55E) else CinemaTextSecondary,
-                    fontSize = 11.sp
-                )
             }
         }
     }
@@ -496,7 +603,12 @@ private fun EmptyLibraryView(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Text(text = if (isScanning) "🔄" else "🎬", fontSize = 48.sp)
+            Icon(
+                imageVector = if (isScanning) Icons.Default.Refresh else Icons.Default.Movie,
+                contentDescription = null,
+                tint = CinemaPrimary,
+                modifier = Modifier.size(56.dp)
+            )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = if (isScanning) "Sedang Memindai Penyimpanan..." else "Belum Ada Video Ditemukan",

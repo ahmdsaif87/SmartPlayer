@@ -35,6 +35,17 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.AspectRatio
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LockOpen
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -72,7 +83,9 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.PlayerView
+import androidx.media3.ui.SubtitleView
 import id.smartplayer.SmartPlayerApp
 import id.smartplayer.data.db.entities.EpisodeRow
 import id.smartplayer.ui.common.VideoThumbnail
@@ -263,6 +276,22 @@ fun PlayerScreen(
                         ResizeMode.ZOOM -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
                         ResizeMode.STRETCH -> AspectRatioFrameLayout.RESIZE_MODE_FILL
                     }
+                    subtitleView?.apply {
+                        setStyle(
+                            CaptionStyleCompat(
+                                /* foregroundColor = */ android.graphics.Color.WHITE,
+                                /* backgroundColor = */ android.graphics.Color.TRANSPARENT,
+                                /* windowColor = */ android.graphics.Color.TRANSPARENT,
+                                /* edgeType = */ CaptionStyleCompat.EDGE_TYPE_OUTLINE,
+                                /* edgeColor = */ android.graphics.Color.argb(220, 0, 0, 0),
+                                /* typeface = */ null
+                            )
+                        )
+                        setApplyEmbeddedStyles(false)
+                        setApplyEmbeddedFontSizes(false)
+                        setFractionalTextSize(SubtitleView.DEFAULT_TEXT_SIZE_FRACTION * 0.78f)
+                        setBottomPaddingFraction(0.06f)
+                    }
                 }
             },
             update = { view ->
@@ -270,6 +299,22 @@ fun PlayerScreen(
                     ResizeMode.FIT -> AspectRatioFrameLayout.RESIZE_MODE_FIT
                     ResizeMode.ZOOM -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
                     ResizeMode.STRETCH -> AspectRatioFrameLayout.RESIZE_MODE_FILL
+                }
+                view.subtitleView?.apply {
+                    setStyle(
+                        CaptionStyleCompat(
+                            android.graphics.Color.WHITE,
+                            android.graphics.Color.TRANSPARENT,
+                            android.graphics.Color.TRANSPARENT,
+                            CaptionStyleCompat.EDGE_TYPE_OUTLINE,
+                            android.graphics.Color.argb(220, 0, 0, 0),
+                            null
+                        )
+                    )
+                    setApplyEmbeddedStyles(false)
+                    setApplyEmbeddedFontSizes(false)
+                    setFractionalTextSize(SubtitleView.DEFAULT_TEXT_SIZE_FRACTION * 0.78f)
+                    setBottomPaddingFraction(0.06f)
                 }
             },
             modifier = Modifier.fillMaxSize()
@@ -326,7 +371,12 @@ fun PlayerScreen(
                     .background(Color(0x99000000), CircleShape)
                     .align(Alignment.TopStart)
             ) {
-                Text(text = "🔒", fontSize = 20.sp)
+                Icon(
+                    imageVector = Icons.Default.Lock,
+                    contentDescription = "Buka Kunci Layar",
+                    tint = CinemaPrimary,
+                    modifier = Modifier.size(24.dp)
+                )
             }
         }
 
@@ -383,7 +433,12 @@ private fun PlayerOverlayControls(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onClose) {
-                    Text(text = "←", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Kembali",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 val title = if (current?.episodeNumber != null) {
@@ -404,16 +459,27 @@ private fun PlayerOverlayControls(
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onToggleResize) {
-                    Text(
-                        text = when (uiState.resizeMode) {
-                            ResizeMode.FIT -> "⛶ Fit"
-                            ResizeMode.ZOOM -> "⛶ Zoom"
-                            ResizeMode.STRETCH -> "⛶ Stretch"
-                        },
-                        color = Color.White,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AspectRatio,
+                            contentDescription = "Mode Ukuran",
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = when (uiState.resizeMode) {
+                                ResizeMode.FIT -> "Fit"
+                                ResizeMode.ZOOM -> "Zoom"
+                                ResizeMode.STRETCH -> "Stretch"
+                            },
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
         }
@@ -430,7 +496,12 @@ private fun PlayerOverlayControls(
                     .size(48.dp)
                     .background(Color(0x66000000), CircleShape)
             ) {
-                Text(text = "⏮", color = Color.White, fontSize = 20.sp)
+                Icon(
+                    imageVector = Icons.Default.SkipPrevious,
+                    contentDescription = "Sebelumnya",
+                    tint = Color.White,
+                    modifier = Modifier.size(28.dp)
+                )
             }
 
             IconButton(
@@ -439,10 +510,11 @@ private fun PlayerOverlayControls(
                     .size(64.dp)
                     .background(CinemaPrimary, CircleShape)
             ) {
-                Text(
-                    text = if (uiState.isPlaying) "⏸" else "▶",
-                    color = Color.White,
-                    fontSize = 24.sp
+                Icon(
+                    imageVector = if (uiState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                    contentDescription = if (uiState.isPlaying) "Jeda" else "Putar",
+                    tint = Color.White,
+                    modifier = Modifier.size(36.dp)
                 )
             }
 
@@ -452,7 +524,12 @@ private fun PlayerOverlayControls(
                     .size(48.dp)
                     .background(Color(0x66000000), CircleShape)
             ) {
-                Text(text = "⏭", color = Color.White, fontSize = 20.sp)
+                Icon(
+                    imageVector = Icons.Default.SkipNext,
+                    contentDescription = "Berikutnya",
+                    tint = Color.White,
+                    modifier = Modifier.size(28.dp)
+                )
             }
         }
 
@@ -502,7 +579,12 @@ private fun PlayerOverlayControls(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 IconButton(onClick = onToggleLock) {
-                    Text(text = "🔒", fontSize = 16.sp)
+                    Icon(
+                        imageVector = if (uiState.isLocked) Icons.Default.Lock else Icons.Default.LockOpen,
+                        contentDescription = "Kunci Layar",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
 
                 Row(
@@ -528,7 +610,18 @@ private fun PlayerOverlayControls(
 
                     // Netflix In-Player Episode Drawer Trigger
                     IconButton(onClick = onToggleEpisodes) {
-                        Text(text = "📑 Episodes", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.List,
+                                contentDescription = "Daftar Episode",
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(text = "Episodes", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
@@ -566,7 +659,12 @@ private fun EpisodeDrawer(
                     fontWeight = FontWeight.Bold
                 )
                 IconButton(onClick = onClose) {
-                    Text(text = "✕", color = CinemaTextSecondary, fontSize = 18.sp)
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Tutup",
+                        tint = CinemaTextSecondary,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
 
