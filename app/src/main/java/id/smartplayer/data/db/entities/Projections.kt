@@ -52,3 +52,18 @@ data class EpisodeSnapshot(
     val dateModifiedSec: Long,
     val sizeBytes: Long
 )
+
+data class HistoryItemRow(
+    val episodeId: Long,
+    val seriesId: Long,
+    val seriesTitle: String,
+    val mediaStoreId: Long,
+    val displayName: String,
+    val episodeNumber: Int?,
+    val seasonNumber: Int,
+    val durationMs: Long,
+    val resumePositionMs: Long?,
+    val isFinished: Boolean,
+    val lastPlayedEpochMs: Long,
+    val posterUrl: String?
+)

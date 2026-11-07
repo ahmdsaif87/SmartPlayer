@@ -13,6 +13,8 @@ import androidx.navigation.navArgument
 import id.smartplayer.SmartPlayerApp
 import id.smartplayer.ui.dashboard.DashboardScreen
 import id.smartplayer.ui.dashboard.DashboardViewModel
+import id.smartplayer.ui.history.HistoryScreen
+import id.smartplayer.ui.history.HistoryViewModel
 import id.smartplayer.ui.player.PlayerActivity
 import id.smartplayer.ui.series.SeriesDetailScreen
 import id.smartplayer.ui.series.SeriesDetailViewModel
@@ -21,6 +23,7 @@ import id.smartplayer.ui.settings.SettingsViewModel
 
 object Destinations {
     const val DASHBOARD = "dashboard"
+    const val HISTORY = "history"
     const val SERIES_DETAIL = "series_detail/{seriesId}"
     const val SETTINGS = "settings"
 
@@ -51,12 +54,26 @@ fun AppNavGraph(
                 onSeriesClick = { seriesId ->
                     navController.navigate(Destinations.seriesDetail(seriesId))
                 },
-                onEpisodePlayClick = { episodeId, seriesId ->
-                    val intent = PlayerActivity.createIntent(context, seriesId, episodeId)
-                    context.startActivity(intent)
+                onHistoryClick = {
+                    navController.navigate(Destinations.HISTORY)
                 },
                 onSettingsClick = {
                     navController.navigate(Destinations.SETTINGS)
+                }
+            )
+        }
+
+        composable(Destinations.HISTORY) {
+            val historyViewModel: HistoryViewModel = viewModel {
+                HistoryViewModel(container.libraryRepository, container.playbackRepository)
+            }
+
+            HistoryScreen(
+                viewModel = historyViewModel,
+                onBackClick = { navController.popBackStack() },
+                onEpisodePlayClick = { episodeId, seriesId ->
+                    val intent = PlayerActivity.createIntent(context, seriesId, episodeId)
+                    context.startActivity(intent)
                 }
             )
         }

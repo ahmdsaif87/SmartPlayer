@@ -2,6 +2,7 @@ package id.smartplayer.data.repo
 
 import id.smartplayer.data.db.AppDatabase
 import id.smartplayer.data.db.entities.EpisodeRow
+import id.smartplayer.data.db.entities.HistoryItemRow
 import id.smartplayer.data.db.entities.SeriesEntity
 import id.smartplayer.data.db.entities.SeriesSummary
 import id.smartplayer.data.scan.ScanCoordinator
@@ -21,6 +22,9 @@ class LibraryRepository(
     fun observeContinueWatching(): Flow<List<EpisodeRow>> =
         database.episodeDao().observeContinueWatching()
 
+    fun observePlaybackHistory(): Flow<List<HistoryItemRow>> =
+        database.episodeDao().observePlaybackHistory()
+
     fun observeEpisodes(seriesId: Long): Flow<List<EpisodeRow>> =
         database.episodeDao().observeEpisodes(seriesId)
 
@@ -31,4 +35,6 @@ class LibraryRepository(
         database.episodeDao().getEpisodes(seriesId)
 
     fun requestScan() = scanCoordinator.requestScan()
+
+    fun dismissScanState() = scanCoordinator.dismissScanState()
 }

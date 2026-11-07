@@ -45,12 +45,6 @@ class MetadataEnricher(
 
     fun enrichAllMissingAsync(force: Boolean = false) {
         scope.launch {
-            val key = settingsRepository.apiKey.value.trim()
-            if (key.isBlank()) {
-                _enrichState.value = EnrichState.Error("API Key Gemini belum diset. Buka Pengaturan untuk mengisi Key.")
-                return@launch
-            }
-
             if (!canUseNetwork()) {
                 val msg = if (settingsRepository.syncOnlyWifi.value) {
                     "Memerlukan koneksi Wi-Fi (sesuai pengaturan). Matikan opsi 'Hanya Sync Lewat Wi-Fi' jika menggunakan kuota seluler."
@@ -87,7 +81,7 @@ class MetadataEnricher(
                         seriesId = series.id,
                         poster = meta.posterUrl ?: series.posterUrl,
                         backdrop = meta.backdropUrl ?: series.backdropUrl,
-                        synopsis = meta.synopsis.ifBlank { series.synopsis },
+                        synopsis = if (meta.synopsis.isNotBlank()) meta.synopsis else series.synopsis,
                         genres = genresStr ?: series.genres,
                         totalEps = meta.totalSeasonEpisodes ?: series.totalSeasonEpisodes
                     )
@@ -108,7 +102,7 @@ class MetadataEnricher(
         for (id in seriesIds) {
             val series = seriesDao.findById(id) ?: continue
             if (!isLikelyMediaTitle(series.displayTitle)) continue
-            if (series.synopsis != null && series.posterUrl != null) continue
+            if (!series.synopsis.isNullOrBlank() && !series.posterUrl.isNullOrBlank() && series.posterUrl.contains("static.tvmaze.com")) continue
 
             val result = aiService.enrich(series.displayTitle, series.seasonNumber)
             result.onSuccess { meta ->
@@ -117,7 +111,7 @@ class MetadataEnricher(
                     seriesId = id,
                     poster = meta.posterUrl ?: series.posterUrl,
                     backdrop = meta.backdropUrl ?: series.backdropUrl,
-                    synopsis = meta.synopsis.ifBlank { series.synopsis },
+                    synopsis = if (meta.synopsis.isNotBlank()) meta.synopsis else series.synopsis,
                     genres = genresStr ?: series.genres,
                     totalEps = meta.totalSeasonEpisodes ?: series.totalSeasonEpisodes
                 )

@@ -6,6 +6,7 @@ import androidx.room.Upsert
 import id.smartplayer.data.db.entities.EpisodeEntity
 import id.smartplayer.data.db.entities.EpisodeRow
 import id.smartplayer.data.db.entities.EpisodeSnapshot
+import id.smartplayer.data.db.entities.HistoryItemRow
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -53,4 +54,26 @@ interface EpisodeDao {
         LIMIT 20
     """)
     fun observeContinueWatching(): Flow<List<EpisodeRow>>
+
+    @Query("""
+        SELECT 
+            e.id AS episodeId,
+            e.seriesId AS seriesId,
+            s.displayTitle AS seriesTitle,
+            e.mediaStoreId AS mediaStoreId,
+            e.displayName AS displayName,
+            e.episodeNumber AS episodeNumber,
+            e.seasonNumber AS seasonNumber,
+            e.durationMs AS durationMs,
+            p.lastPlayedPosition AS resumePositionMs,
+            COALESCE(p.isFinished, 0) AS isFinished,
+            p.updatedAtEpochMs AS lastPlayedEpochMs,
+            s.posterUrl AS posterUrl
+        FROM episodes e
+        JOIN playback_state p ON p.fingerprint = e.fingerprint
+        JOIN series s ON s.id = e.seriesId
+        ORDER BY p.updatedAtEpochMs DESC
+        LIMIT 50
+    """)
+    fun observePlaybackHistory(): Flow<List<HistoryItemRow>>
 }

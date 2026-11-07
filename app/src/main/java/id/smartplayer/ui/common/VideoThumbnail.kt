@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -26,8 +25,8 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
+import coil.compose.SubcomposeAsyncImage
+import coil.request.ImageRequest
 import id.smartplayer.ui.theme.CinemaSurfaceVariant
 import id.smartplayer.ui.theme.CinemaTextSecondary
 import kotlinx.coroutines.Dispatchers
@@ -43,15 +42,8 @@ fun VideoThumbnail(
     val context = LocalContext.current
     var localBitmap by remember(mediaStoreId) { mutableStateOf<Bitmap?>(null) }
 
-    if (!posterUrl.isNullOrBlank()) {
-        AsyncImage(
-            model = posterUrl,
-            contentDescription = null,
-            contentScale = contentScale,
-            modifier = modifier
-        )
-    } else if (mediaStoreId != null && mediaStoreId > 0) {
-        LaunchedEffect(mediaStoreId) {
+    LaunchedEffect(mediaStoreId) {
+        if (mediaStoreId != null && mediaStoreId > 0) {
             withContext(Dispatchers.IO) {
                 try {
                     val uri = ContentUris.withAppendedId(
@@ -59,7 +51,7 @@ fun VideoThumbnail(
                         mediaStoreId
                     )
                     val bmp = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                        context.contentResolver.loadThumbnail(uri, Size(360, 240), null)
+                        context.contentResolver.loadThumbnail(uri, Size(480, 720), null)
                     } else {
                         @Suppress("DEPRECATION")
                         MediaStore.Video.Thumbnails.getThumbnail(
@@ -75,17 +67,50 @@ fun VideoThumbnail(
                 }
             }
         }
+    }
 
-        if (localBitmap != null) {
-            Image(
-                bitmap = localBitmap!!.asImageBitmap(),
-                contentDescription = null,
-                contentScale = contentScale,
-                modifier = modifier
-            )
-        } else {
-            PlaceholderThumbnail(modifier)
-        }
+    if (!posterUrl.isNullOrBlank()) {
+        SubcomposeAsyncImage(
+            model = ImageRequest.Builder(context)
+                .data(posterUrl)
+                .crossfade(true)
+                .setHeader("User-Agent", "SmartPlayer/1.0")
+                .build(),
+            contentDescription = null,
+            contentScale = contentScale,
+            modifier = modifier,
+            loading = {
+                if (localBitmap != null) {
+                    Image(
+                        bitmap = localBitmap!!.asImageBitmap(),
+                        contentDescription = null,
+                        contentScale = contentScale,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    PlaceholderThumbnail(Modifier.fillMaxSize())
+                }
+            },
+            error = {
+                if (localBitmap != null) {
+                    Image(
+                        bitmap = localBitmap!!.asImageBitmap(),
+                        contentDescription = null,
+                        contentScale = contentScale,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    PlaceholderThumbnail(Modifier.fillMaxSize())
+                }
+            }
+        )
+    } else if (localBitmap != null) {
+        Image(
+            bitmap = localBitmap!!.asImageBitmap(),
+            contentDescription = null,
+            contentScale = contentScale,
+            modifier = modifier
+        )
     } else {
         PlaceholderThumbnail(modifier)
     }

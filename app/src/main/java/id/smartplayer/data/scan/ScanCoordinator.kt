@@ -48,6 +48,10 @@ class ScanCoordinator(
         return job
     }
 
+    fun dismissScanState() {
+        _scanState.value = ScanState.Idle
+    }
+
     private suspend fun runScan() = withContext(Dispatchers.IO) {
         try {
             val rawFiles = scanner.scan()

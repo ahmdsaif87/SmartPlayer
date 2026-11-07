@@ -63,7 +63,7 @@ class AppContainer(private val context: Context) {
                 metadataEnricher.enrichSeriesAsync(newSeriesIds)
             }
             onScanCompleted = {
-                if (settingsRepository.apiKey.value.isNotBlank() && settingsRepository.autoEnrich.value) {
+                if (settingsRepository.autoEnrich.value) {
                     metadataEnricher.enrichAllMissingAsync()
                 }
             }

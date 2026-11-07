@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
@@ -91,7 +92,7 @@ import id.smartplayer.ui.theme.CinemaTextSecondary
 fun DashboardScreen(
     viewModel: DashboardViewModel,
     onSeriesClick: (Long) -> Unit,
-    onEpisodePlayClick: (Long, Long) -> Unit, // episodeId, seriesId
+    onHistoryClick: () -> Unit,
     onSettingsClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -137,10 +138,10 @@ fun DashboardScreen(
                             modifier = Modifier.size(22.dp)
                         )
                     }
-                    IconButton(onClick = { viewModel.requestRescan() }) {
+                    IconButton(onClick = onHistoryClick) {
                         Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = "Pindai Ulang",
+                            imageVector = Icons.Default.History,
+                            contentDescription = "Riwayat Menonton",
                             tint = Color.White,
                             modifier = Modifier.size(22.dp)
                         )
@@ -190,54 +191,52 @@ fun DashboardScreen(
         }
 
         // --- Live Scan Status Feedback Banner ---
-        var isScanBannerDismissed by remember(uiState.scanState) { mutableStateOf(false) }
-
         LaunchedEffect(uiState.scanState) {
             if (uiState.scanState is ScanState.Done) {
-                delay(6000)
-                isScanBannerDismissed = true
+                delay(5000)
+                viewModel.dismissScanBanner()
             }
         }
 
-        if (!isScanBannerDismissed) {
-            when (val scan = uiState.scanState) {
-                is ScanState.Scanning -> {
-                    val progress = if (scan.total > 0) scan.processed.toFloat() / scan.total else 0f
-                    Column(
+        when (val scan = uiState.scanState) {
+            is ScanState.Scanning -> {
+                val progress = if (scan.total > 0) scan.processed.toFloat() / scan.total else 0f
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFF1E293B))
+                ) {
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Color(0xFF1E293B))
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            CircularProgressIndicator(
-                                color = CinemaPrimary,
-                                modifier = Modifier.size(16.dp),
-                                strokeWidth = 2.dp
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(
-                                text = "Memindai video lokal (${scan.processed}/${scan.total})...",
-                                color = Color.White,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                        LinearProgressIndicator(
-                            progress = { progress },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(2.dp),
+                        CircularProgressIndicator(
                             color = CinemaPrimary,
-                            trackColor = CinemaProgressBg
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = "Memindai video lokal (${scan.processed}/${scan.total})...",
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
                         )
                     }
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(2.dp),
+                        color = CinemaPrimary,
+                        trackColor = CinemaProgressBg
+                    )
                 }
-                is ScanState.Done -> {
+            }
+            is ScanState.Done -> {
+                if (scan.added > 0 || scan.updated > 0 || scan.removed > 0) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -265,7 +264,7 @@ fun DashboardScreen(
                             )
                         }
                         IconButton(
-                            onClick = { isScanBannerDismissed = true },
+                            onClick = { viewModel.dismissScanBanner() },
                             modifier = Modifier.size(24.dp)
                         ) {
                             Icon(
@@ -277,11 +276,103 @@ fun DashboardScreen(
                         }
                     }
                 }
-                is ScanState.Error -> {
+            }
+            is ScanState.Error -> {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFF7F1D1D))
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ErrorOutline,
+                            contentDescription = null,
+                            tint = Color(0xFFF87171),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Gagal memindai: ${scan.cause.localizedMessage}",
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    IconButton(
+                        onClick = { viewModel.dismissScanBanner() },
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Tutup notifikasi",
+                            tint = Color.White.copy(alpha = 0.8f),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
+            else -> {}
+        }
+
+        // --- Live AI Enrichment Status Feedback Banner ---
+        LaunchedEffect(uiState.enrichState) {
+            if (uiState.enrichState is EnrichState.Completed) {
+                delay(5000)
+                viewModel.dismissEnrichBanner()
+            }
+        }
+
+        when (val es = uiState.enrichState) {
+            is EnrichState.Progress -> {
+                val progress = if (es.total > 0) es.processed.toFloat() / es.total else 0f
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFF312E81))
+                ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Color(0xFF7F1D1D))
+                            .padding(horizontal = 16.dp, vertical = 7.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CircularProgressIndicator(
+                            color = CinemaSecondary,
+                            modifier = Modifier.size(14.dp),
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "AI Gemini: Mengunduh poster & sinopsis \"${es.currentTitle}\" (${es.processed}/${es.total})...",
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(2.dp),
+                        color = CinemaSecondary,
+                        trackColor = CinemaProgressBg
+                    )
+                }
+            }
+            is EnrichState.Completed -> {
+                if (es.enrichedCount > 0) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFF1E1B4B))
                             .padding(horizontal = 16.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
@@ -291,130 +382,34 @@ fun DashboardScreen(
                             modifier = Modifier.weight(1f)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.ErrorOutline,
+                                imageVector = Icons.Default.AutoAwesome,
                                 contentDescription = null,
-                                tint = Color(0xFFF87171),
+                                tint = CinemaSecondary,
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "Gagal memindai: ${scan.cause.localizedMessage}",
+                                text = "AI Gemini: Selesai memperbarui ${es.enrichedCount} poster & sinopsis.",
                                 color = Color.White,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium
                             )
                         }
                         IconButton(
-                            onClick = { isScanBannerDismissed = true },
+                            onClick = { viewModel.dismissEnrichBanner() },
                             modifier = Modifier.size(24.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Close,
-                                contentDescription = "Tutup notifikasi",
+                                contentDescription = "Tutup",
                                 tint = Color.White.copy(alpha = 0.8f),
                                 modifier = Modifier.size(16.dp)
                             )
                         }
                     }
                 }
-                else -> {}
             }
-        }
-
-        // --- Live AI Enrichment Status Feedback Banner ---
-        var isEnrichBannerDismissed by remember(uiState.enrichState) { mutableStateOf(false) }
-
-        LaunchedEffect(uiState.enrichState) {
-            if (uiState.enrichState is EnrichState.Completed) {
-                delay(6000)
-                isEnrichBannerDismissed = true
-            }
-        }
-
-        if (!isEnrichBannerDismissed) {
-            when (val es = uiState.enrichState) {
-                is EnrichState.Progress -> {
-                    val progress = if (es.total > 0) es.processed.toFloat() / es.total else 0f
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(Color(0xFF312E81))
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 7.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            CircularProgressIndicator(
-                                color = CinemaSecondary,
-                                modifier = Modifier.size(14.dp),
-                                strokeWidth = 2.dp
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "AI Gemini: Mengunduh poster & sinopsis \"${es.currentTitle}\" (${es.processed}/${es.total})...",
-                                color = Color.White,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                        LinearProgressIndicator(
-                            progress = { progress },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(2.dp),
-                            color = CinemaSecondary,
-                            trackColor = CinemaProgressBg
-                        )
-                    }
-                }
-                is EnrichState.Completed -> {
-                    if (es.enrichedCount > 0) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(Color(0xFF1E1B4B))
-                                .padding(horizontal = 16.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.AutoAwesome,
-                                    contentDescription = null,
-                                    tint = CinemaSecondary,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "AI Gemini: Selesai memperbarui ${es.enrichedCount} poster & sinopsis.",
-                                    color = Color.White,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                            IconButton(
-                                onClick = { isEnrichBannerDismissed = true },
-                                modifier = Modifier.size(24.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Close,
-                                    contentDescription = "Tutup",
-                                    tint = Color.White.copy(alpha = 0.8f),
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-                else -> {}
-            }
+            else -> {}
         }
 
         // --- YouTube-Style Category Filter Pills ---
@@ -454,8 +449,8 @@ fun DashboardScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // --- Main Content: Grid & Continue Watching ---
-        if (uiState.collections.isEmpty() && uiState.continueWatching.isEmpty()) {
+        // --- Main Content: Grid ---
+        if (uiState.collections.isEmpty()) {
             EmptyLibraryView(
                 isScanning = uiState.scanState is ScanState.Scanning,
                 onRescan = { viewModel.requestRescan() }
@@ -468,124 +463,12 @@ fun DashboardScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
-                // Section: Lanjutkan Menonton (Netflix Style)
-                if (uiState.continueWatching.isNotEmpty() && uiState.selectedFilter == DashboardFilter.ALL) {
-                    item(span = { GridItemSpan(maxLineSpan) }) {
-                        Column {
-                            Text(
-                                text = "LANJUTKAN MENONTON",
-                                color = CinemaTextPrimary,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.sp,
-                                modifier = Modifier.padding(bottom = 10.dp)
-                            )
-                            LazyRow(
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                contentPadding = PaddingValues(end = 16.dp)
-                            ) {
-                                items(uiState.continueWatching, key = { it.id }) { ep ->
-                                    ContinueWatchingCard(
-                                        episode = ep,
-                                        onClick = { onEpisodePlayClick(ep.id, ep.seriesId) }
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(18.dp))
-                            Text(
-                                text = "SEMUA KOLEKSI (${uiState.collections.size})",
-                                color = CinemaTextPrimary,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.sp,
-                                modifier = Modifier.padding(bottom = 6.dp)
-                            )
-                        }
-                    }
-                }
-
-                // Grid items: Series & Movies Cards
                 items(uiState.collections, key = { it.id }) { series ->
                     SeriesCard(
                         series = series,
                         onClick = { onSeriesClick(series.id) }
                     )
                 }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ContinueWatchingCard(
-    episode: EpisodeRow,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .width(220.dp)
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = CinemaSurface)
-    ) {
-        Column {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(16f / 9f)
-            ) {
-                VideoThumbnail(
-                    posterUrl = null,
-                    mediaStoreId = episode.mediaStoreId,
-                    modifier = Modifier.fillMaxSize()
-                )
-
-                // Play icon overlay
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .background(Color(0x99000000), CircleShape)
-                        .align(Alignment.Center),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.PlayArrow,
-                        contentDescription = "Putar",
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
-                // Episode progress bar at bottom of card
-                val resumeMs = episode.resumePositionMs ?: 0L
-                val progress = if (episode.durationMs > 0) resumeMs.toFloat() / episode.durationMs else 0f
-                LinearProgressIndicator(
-                    progress = { progress },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(3.dp)
-                        .align(Alignment.BottomCenter),
-                    color = CinemaPrimary,
-                    trackColor = CinemaProgressBg
-                )
-            }
-
-            Column(modifier = Modifier.padding(10.dp)) {
-                Text(
-                    text = episode.displayName,
-                    color = CinemaTextPrimary,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                val epText = if (episode.episodeNumber != null) "Eps ${episode.episodeNumber}" else "Movie"
-                Text(
-                    text = "$epText • Sisa ${(episode.durationMs - (episode.resumePositionMs ?: 0)) / 60000} mnt",
-                    color = CinemaTextSecondary,
-                    fontSize = 11.sp
-                )
             }
         }
     }

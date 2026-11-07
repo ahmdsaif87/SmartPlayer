@@ -14,7 +14,7 @@ class SettingsRepository(context: Context) {
     private val _apiKey = MutableStateFlow(prefs.getString(KEY_API_KEY, "") ?: "")
     val apiKey: StateFlow<String> = _apiKey.asStateFlow()
 
-    private val _syncOnlyWifi = MutableStateFlow(prefs.getBoolean(KEY_SYNC_ONLY_WIFI, true))
+    private val _syncOnlyWifi = MutableStateFlow(prefs.getBoolean(KEY_SYNC_ONLY_WIFI, false))
     val syncOnlyWifi: StateFlow<Boolean> = _syncOnlyWifi.asStateFlow()
 
     private val _autoEnrich = MutableStateFlow(prefs.getBoolean(KEY_AUTO_ENRICH, true))

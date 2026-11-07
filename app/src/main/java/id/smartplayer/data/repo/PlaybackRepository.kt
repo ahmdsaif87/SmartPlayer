@@ -44,4 +44,8 @@ class PlaybackRepository(
 
     fun observeProgress(fingerprint: String): Flow<PlaybackStateEntity?> =
         playbackStateDao.observe(fingerprint)
+
+    suspend fun clearHistory() = withContext(Dispatchers.IO) {
+        playbackStateDao.clearAll()
+    }
 }

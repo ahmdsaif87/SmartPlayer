@@ -85,7 +85,15 @@ class DashboardViewModel(
         initialValue = DashboardUiState()
     )
 
+    fun dismissScanBanner() {
+        repository.dismissScanState()
+    }
+
     fun dismissEnrichState() {
+        metadataEnricher.dismissState()
+    }
+
+    fun dismissEnrichBanner() {
         metadataEnricher.dismissState()
     }
 
