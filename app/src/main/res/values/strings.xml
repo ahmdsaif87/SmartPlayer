@@ -1,0 +1,19 @@
+<resources>
+    <string name="app_name">SmartPlayer</string>
+    <string name="scan_title">Pindai Penyimpanan</string>
+    <string name="scan_subtitle">Mencari serial dan film lokal di perangkat Anda</string>
+    <string name="permission_rationale">SmartPlayer membutuhkan akses media video untuk memindai dan memutar file serial dan film lokal Anda.</string>
+    <string name="grant_permission">Berikan Izin</string>
+    <string name="open_settings">Buka Pengaturan</string>
+    <string name="continue_watching">Lanjutkan Menonton</string>
+    <string name="all_collections">Semua Koleksi</string>
+    <string name="tab_all">Semua</string>
+    <string name="tab_in_progress">Sedang Ditonton</string>
+    <string name="tab_unfinished">Belum Selesai</string>
+    <string name="tab_series">Serial</string>
+    <string name="tab_movies">Film</string>
+    <string name="tab_finished">Selesai</string>
+    <string name="search_hint">Cari judul serial, film, atau episode...</string>
+    <string name="empty_library">Belum ada video ditemukan di folder perangkat. Simpan file video (.mp4, .mkv, .webm) di folder Download, Movies, atau Video.</string>
+    <string name="rescan">Pindai Ulang</string>
+</resources>

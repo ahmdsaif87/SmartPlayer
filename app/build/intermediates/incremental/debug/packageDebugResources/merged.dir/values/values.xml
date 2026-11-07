@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_launcher_background">#0A0A0C</color>
+    <string name="all_collections">Semua Koleksi</string>
+    <string name="app_name">SmartPlayer</string>
+    <string name="continue_watching">Lanjutkan Menonton</string>
+    <string name="empty_library">Belum ada video ditemukan di folder perangkat. Simpan file video (.mp4, .mkv, .webm) di folder Download, Movies, atau Video.</string>
+    <string name="grant_permission">Berikan Izin</string>
+    <string name="open_settings">Buka Pengaturan</string>
+    <string name="permission_rationale">SmartPlayer membutuhkan akses media video untuk memindai dan memutar file serial dan film lokal Anda.</string>
+    <string name="rescan">Pindai Ulang</string>
+    <string name="scan_subtitle">Mencari serial dan film lokal di perangkat Anda</string>
+    <string name="scan_title">Pindai Penyimpanan</string>
+    <string name="search_hint">Cari judul serial, film, atau episode...</string>
+    <string name="tab_all">Semua</string>
+    <string name="tab_finished">Selesai</string>
+    <string name="tab_in_progress">Sedang Ditonton</string>
+    <string name="tab_movies">Film</string>
+    <string name="tab_series">Serial</string>
+    <string name="tab_unfinished">Belum Selesai</string>
+    <style name="Theme.SmartPlayer" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">#0A0A0C</item>
+        <item name="android:navigationBarColor">#0A0A0C</item>
+        <item name="android:windowBackground">#0A0A0C</item>
+    </style>
+    <style name="Theme.SmartPlayer.Player" parent="android:Theme.Material.NoActionBar.Fullscreen">
+        <item name="android:windowBackground">#000000</item>
+    </style>
+</resources>

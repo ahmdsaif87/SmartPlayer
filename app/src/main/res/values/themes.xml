@@ -1,0 +1,11 @@
+<resources>
+    <style name="Theme.SmartPlayer" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">#0A0A0C</item>
+        <item name="android:navigationBarColor">#0A0A0C</item>
+        <item name="android:windowBackground">#0A0A0C</item>
+    </style>
+
+    <style name="Theme.SmartPlayer.Player" parent="android:Theme.Material.NoActionBar.Fullscreen">
+        <item name="android:windowBackground">#000000</item>
+    </style>
+</resources>

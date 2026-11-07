@@ -1,0 +1,22 @@
+[
+    {
+        "merged": "id.smartplayer.app-debug-63:/xml_data_extraction_rules.xml.flat",
+        "source": "id.smartplayer.app-main-65:/xml/data_extraction_rules.xml"
+    },
+    {
+        "merged": "id.smartplayer.app-debug-63:/mipmap-anydpi-v26_ic_launcher_round.xml.flat",
+        "source": "id.smartplayer.app-main-65:/mipmap-anydpi-v26/ic_launcher_round.xml"
+    },
+    {
+        "merged": "id.smartplayer.app-debug-63:/mipmap-anydpi-v26_ic_launcher.xml.flat",
+        "source": "id.smartplayer.app-main-65:/mipmap-anydpi-v26/ic_launcher.xml"
+    },
+    {
+        "merged": "id.smartplayer.app-debug-63:/drawable_ic_launcher_foreground.xml.flat",
+        "source": "id.smartplayer.app-main-65:/drawable/ic_launcher_foreground.xml"
+    },
+    {
+        "merged": "id.smartplayer.app-debug-63:/xml_backup_rules.xml.flat",
+        "source": "id.smartplayer.app-main-65:/xml/backup_rules.xml"
+    }
+]
