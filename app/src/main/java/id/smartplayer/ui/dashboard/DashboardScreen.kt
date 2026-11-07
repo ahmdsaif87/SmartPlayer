@@ -32,6 +32,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -154,16 +155,77 @@ fun DashboardScreen(
             }
         }
 
-        // Scanning Indicator
-        if (uiState.scanState is ScanState.Scanning) {
-            val scan = uiState.scanState as ScanState.Scanning
-            val progress = if (scan.total > 0) scan.processed.toFloat() / scan.total else 0f
-            LinearProgressIndicator(
-                progress = { progress },
-                modifier = Modifier.fillMaxWidth(),
-                color = CinemaPrimary,
-                trackColor = CinemaProgressBg
-            )
+        // --- Live Scan Status Feedback Banner ---
+        when (val scan = uiState.scanState) {
+            is ScanState.Scanning -> {
+                val progress = if (scan.total > 0) scan.processed.toFloat() / scan.total else 0f
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFF1E293B))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CircularProgressIndicator(
+                            color = CinemaPrimary,
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = "Memindai video lokal (${scan.processed}/${scan.total})...",
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(2.dp),
+                        color = CinemaPrimary,
+                        trackColor = CinemaProgressBg
+                    )
+                }
+            }
+            is ScanState.Done -> {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFF14532D))
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "✓ Pemindaian selesai (${scan.added} baru, ${scan.updated} diperbarui).",
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+            is ScanState.Error -> {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFF7F1D1D))
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "⚠️ Gagal memindai: ${scan.cause.localizedMessage}",
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+            else -> {}
         }
 
         // --- YouTube-Style Category Filter Pills ---
@@ -205,7 +267,10 @@ fun DashboardScreen(
 
         // --- Main Content: Grid & Continue Watching ---
         if (uiState.collections.isEmpty() && uiState.continueWatching.isEmpty()) {
-            EmptyLibraryView(onRescan = { viewModel.requestRescan() })
+            EmptyLibraryView(
+                isScanning = uiState.scanState is ScanState.Scanning,
+                onRescan = { viewModel.requestRescan() }
+            )
         } else {
             LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 150.dp),
@@ -417,7 +482,10 @@ private fun SeriesCard(
 }
 
 @Composable
-private fun EmptyLibraryView(onRescan: () -> Unit) {
+private fun EmptyLibraryView(
+    isScanning: Boolean,
+    onRescan: () -> Unit
+) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -428,17 +496,21 @@ private fun EmptyLibraryView(onRescan: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Text(text = "🎬", fontSize = 48.sp)
+            Text(text = if (isScanning) "🔄" else "🎬", fontSize = 48.sp)
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "Belum Ada Video Ditemukan",
+                text = if (isScanning) "Sedang Memindai Penyimpanan..." else "Belum Ada Video Ditemukan",
                 color = CinemaTextPrimary,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Simpan file serial atau film (.mp4, .mkv, .webm) di folder Download, Movies, atau Video.",
+                text = if (isScanning) {
+                    "Mencari file video di folder Download, Movies, Video, dan DCIM..."
+                } else {
+                    "Simpan file serial atau film (.mp4, .mkv, .webm) di folder Download, Movies, atau Video."
+                },
                 color = CinemaTextSecondary,
                 fontSize = 13.sp,
                 textAlign = TextAlign.Center,
@@ -447,10 +519,24 @@ private fun EmptyLibraryView(onRescan: () -> Unit) {
             Spacer(modifier = Modifier.height(24.dp))
             Button(
                 onClick = onRescan,
-                colors = ButtonDefaults.buttonColors(containerColor = CinemaPrimary),
+                enabled = !isScanning,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = CinemaPrimary,
+                    disabledContainerColor = CinemaSurfaceVariant
+                ),
                 shape = RoundedCornerShape(24.dp)
             ) {
-                Text(text = "Pindai Penyimpanan", color = Color.White)
+                if (isScanning) {
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = "Sedang Memindai...", color = Color.White)
+                } else {
+                    Text(text = "Pindai Penyimpanan", color = Color.White)
+                }
             }
         }
     }

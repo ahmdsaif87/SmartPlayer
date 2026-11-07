@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,6 +18,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
@@ -36,6 +38,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import id.smartplayer.data.scan.ScanState
 import id.smartplayer.ui.theme.CinemaBackground
 import id.smartplayer.ui.theme.CinemaPrimary
 import id.smartplayer.ui.theme.CinemaSecondary
@@ -260,13 +263,53 @@ fun SettingsScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
+                val scanState by viewModel.scanState.collectAsState()
+                val isScanning = scanState is ScanState.Scanning
+
                 Button(
                     onClick = { viewModel.triggerRescan() },
-                    colors = ButtonDefaults.buttonColors(containerColor = CinemaSurfaceVariant),
+                    enabled = !isScanning,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = CinemaPrimary,
+                        disabledContainerColor = CinemaSurfaceVariant
+                    ),
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(text = "🔄  Pindai Ulang Penyimpanan Sekarang", color = CinemaTextPrimary, fontSize = 13.sp)
+                    if (isScanning) {
+                        CircularProgressIndicator(
+                            color = Color.White,
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        val s = scanState as ScanState.Scanning
+                        Text(text = "Sedang Memindai (${s.processed}/${s.total})...", color = Color.White, fontSize = 13.sp)
+                    } else {
+                        Text(text = "🔄  Pindai Ulang Penyimpanan Sekarang", color = Color.White, fontSize = 13.sp)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                when (val state = scanState) {
+                    is ScanState.Done -> {
+                        Text(
+                            text = "✓ Selesai: ${state.added} baru ditambahkan, ${state.updated} diperbarui.",
+                            color = Color(0xFF22C55E),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    is ScanState.Error -> {
+                        Text(
+                            text = "⚠️ Gagal: ${state.cause.localizedMessage}",
+                            color = Color(0xFFEF4444),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    else -> {}
                 }
             }
         }

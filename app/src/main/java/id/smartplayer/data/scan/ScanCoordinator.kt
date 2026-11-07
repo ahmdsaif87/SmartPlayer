@@ -1,5 +1,6 @@
 package id.smartplayer.data.scan
 
+import android.util.Log
 import androidx.room.withTransaction
 import id.smartplayer.data.common.FingerprintHelper
 import id.smartplayer.data.db.AppDatabase
@@ -164,12 +165,14 @@ class ScanCoordinator(
                 seriesDao.deleteOrphans()
             }
 
+            Log.d("SmartPlayer", "Scan finished: added=$addedCount, updated=$updatedCount, removed=${removedIds.size}")
             _scanState.value = ScanState.Done(added = addedCount, updated = updatedCount, removed = removedIds.size)
 
             if (newlyCreatedSeriesIds.isNotEmpty()) {
                 onNewSeriesDiscovered?.invoke(newlyCreatedSeriesIds)
             }
         } catch (t: Throwable) {
+            Log.e("SmartPlayer", "Scan failed with error", t)
             _scanState.value = ScanState.Error(t)
         }
     }

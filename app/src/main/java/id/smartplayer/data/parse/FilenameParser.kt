@@ -22,11 +22,11 @@ class DefaultFilenameParser(
         private val BRACKET_EPISODE_REGEX = Regex("""^(\d{1,4})(?:v(\d))?$""", RegexOption.IGNORE_CASE)
 
         // Resolution tokens
-        private val RESOLUTION_TOKEN_REGEX = Regex("""\b(2160|1440|1080|720|576|480|360)[pi]\b|\b4k\b""", RegexOption.IGNORE_CASE)
+        private val RESOLUTION_TOKEN_REGEX = Regex("""\b(?:mkv|mp4|webm)?((?:2160|1440|1080|720|576|480|360)[pi]|4k)\b""", RegexOption.IGNORE_CASE)
         private val WXH_RESOLUTION_REGEX = Regex("""\b\d{3,4}x\d{3,4}\b""", RegexOption.IGNORE_CASE)
 
         // Step 4: Domain / watermark strip
-        private val DOMAIN_REGEX = Regex("""(?i)(?:www\.)?[a-z0-9-]+\.(?:com|net|org|id|co|me|moe|info|my\.id)\b""")
+        private val DOMAIN_REGEX = Regex("""(?i)(?:www\.)?[a-z0-9-]+\.(?:com|net|org|id|co|me|moe|info|my\.id|io|tv|xyz|vip|cc)\b""")
 
         // Step 6: Episode Extraction Rules
         // E1: S01E05v2 or S1 - E5
@@ -140,7 +140,7 @@ class DefaultFilenameParser(
         if (resolution == null) {
             val resMatch = RESOLUTION_TOKEN_REGEX.find(s)
             if (resMatch != null) {
-                resolution = resMatch.value.lowercase(Locale.ROOT)
+                resolution = (resMatch.groups[1]?.value ?: resMatch.value).lowercase(Locale.ROOT)
             }
         }
         // WxH patterns (e.g. 1920x1080) MUST be removed before episode rule E2 runs
@@ -324,7 +324,7 @@ class DefaultFilenameParser(
 
     private fun extractResolutionFromText(text: String): String? {
         val resMatch = RESOLUTION_TOKEN_REGEX.find(text)
-        return resMatch?.value?.lowercase(Locale.ROOT)
+        return (resMatch?.groups?.get(1)?.value ?: resMatch?.value)?.lowercase(Locale.ROOT)
     }
 
     private fun cleanTitle(raw: String): String {

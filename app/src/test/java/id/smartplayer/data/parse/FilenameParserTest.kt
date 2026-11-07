@@ -220,6 +220,15 @@ class FilenameParserTest {
     }
 
     @Test
+    fun `test Otakudesu io with double dash and Mkv1080p`() {
+        val result = parser.parse("Otakudesu.io_RMSK--01_Mkv1080p.mkv")
+        assertEquals("RMSK", result.coreTitle)
+        assertEquals(1, result.seasonNumber)
+        assertEquals(1, result.episodeNumber)
+        assertEquals("1080p", result.resolution)
+    }
+
+    @Test
     fun `test SeriesKeyFactory invariant`() {
         val key1 = SeriesKeyFactory.key("Sousou no Frieren", 1)
         val key2 = SeriesKeyFactory.key("Sousou_no_Frieren", 1)
