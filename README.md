@@ -51,7 +51,3 @@ cd SmartPlayer
 ```
 
 ---
-
-## Lisensi
-
-Proyek ini dirilis di bawah lisensi MIT.
