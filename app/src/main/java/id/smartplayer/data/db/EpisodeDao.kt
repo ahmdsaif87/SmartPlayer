@@ -72,6 +72,7 @@ interface EpisodeDao {
         FROM episodes e
         JOIN playback_state p ON p.fingerprint = e.fingerprint
         JOIN series s ON s.id = e.seriesId
+        WHERE p.isFinished = 1 OR p.lastPlayedPosition >= 5000
         ORDER BY p.updatedAtEpochMs DESC
         LIMIT 50
     """)

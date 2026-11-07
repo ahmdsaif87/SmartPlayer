@@ -20,9 +20,13 @@ class PlaybackRepository(
         val isFinished = (durationMs > 0 && positionMs >= 0.95 * durationMs) ||
                 (durationMs > 90_000 && durationMs - positionMs <= 90_000)
 
+        // Don't save false history if video was barely opened (< 5s) and not finished
+        if (!isFinished && positionMs < 5000L) {
+            return@withContext
+        }
+
         val persistedPosition = when {
             isFinished -> 0L
-            positionMs < 5_000L -> 0L
             else -> positionMs
         }
 
@@ -35,6 +39,10 @@ class PlaybackRepository(
         )
 
         playbackStateDao.save(state)
+    }
+
+    suspend fun deleteHistoryByEpisodeId(episodeId: Long) = withContext(Dispatchers.IO) {
+        playbackStateDao.deleteByEpisodeId(episodeId)
     }
 
     suspend fun getProgress(fingerprint: String): PlaybackStateEntity? =

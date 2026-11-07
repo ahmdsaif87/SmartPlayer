@@ -24,6 +24,9 @@ interface PlaybackStateDao {
     @Query("DELETE FROM playback_state WHERE fingerprint NOT IN (SELECT fingerprint FROM episodes)")
     suspend fun purgeOrphans()
 
+    @Query("DELETE FROM playback_state WHERE fingerprint IN (SELECT fingerprint FROM episodes WHERE id = :episodeId)")
+    suspend fun deleteByEpisodeId(episodeId: Long)
+
     @Query("DELETE FROM playback_state")
     suspend fun clearAll()
 }

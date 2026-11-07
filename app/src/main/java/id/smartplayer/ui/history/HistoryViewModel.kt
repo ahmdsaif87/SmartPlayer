@@ -22,6 +22,12 @@ class HistoryViewModel(
             initialValue = emptyList()
         )
 
+    fun deleteHistoryItem(episodeId: Long) {
+        viewModelScope.launch {
+            playbackRepository.deleteHistoryByEpisodeId(episodeId)
+        }
+    }
+
     fun clearHistory() {
         viewModelScope.launch {
             playbackRepository.clearHistory()

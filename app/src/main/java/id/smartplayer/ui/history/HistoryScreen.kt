@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.PlayArrow
@@ -163,7 +164,8 @@ fun HistoryScreen(
                 items(items, key = { it.episodeId }) { item ->
                     HistoryItemCard(
                         item = item,
-                        onClick = { onEpisodePlayClick(item.episodeId, item.seriesId) }
+                        onClick = { onEpisodePlayClick(item.episodeId, item.seriesId) },
+                        onDeleteClick = { viewModel.deleteHistoryItem(item.episodeId) }
                     )
                 }
             }
@@ -210,7 +212,8 @@ fun HistoryScreen(
 @Composable
 private fun HistoryItemCard(
     item: HistoryItemRow,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onDeleteClick: () -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -348,6 +351,21 @@ private fun HistoryItemCard(
                         )
                     }
                 }
+            }
+
+            // Delete individual history item button
+            IconButton(
+                onClick = onDeleteClick,
+                modifier = Modifier
+                    .size(36.dp)
+                    .padding(start = 4.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Hapus dari riwayat",
+                    tint = CinemaTextSecondary.copy(alpha = 0.7f),
+                    modifier = Modifier.size(18.dp)
+                )
             }
         }
     }
