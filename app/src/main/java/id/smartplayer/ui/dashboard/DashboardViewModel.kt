@@ -2,8 +2,6 @@ package id.smartplayer.ui.dashboard
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import id.smartplayer.data.ai.EnrichState
-import id.smartplayer.data.ai.MetadataEnricher
 import id.smartplayer.data.db.entities.EpisodeRow
 import id.smartplayer.data.db.entities.SeriesSummary
 import id.smartplayer.data.repo.LibraryRepository
@@ -29,13 +27,11 @@ data class DashboardUiState(
     val collections: List<SeriesSummary> = emptyList(),
     val selectedFilter: DashboardFilter = DashboardFilter.ALL,
     val searchQuery: String = "",
-    val scanState: ScanState = ScanState.Idle,
-    val enrichState: EnrichState = EnrichState.Idle
+    val scanState: ScanState = ScanState.Idle
 )
 
 class DashboardViewModel(
-    private val repository: LibraryRepository,
-    private val metadataEnricher: MetadataEnricher
+    private val repository: LibraryRepository
 ) : ViewModel() {
 
     private val _searchQuery = MutableStateFlow("")
@@ -67,17 +63,15 @@ class DashboardViewModel(
 
     val uiState: StateFlow<DashboardUiState> = combine(
         contentFlow,
-        repository.scanState,
-        metadataEnricher.enrichState
-    ) { (continueList, filtered, filterAndQuery), scan, enrich ->
+        repository.scanState
+    ) { (continueList, filtered, filterAndQuery), scan ->
         val (filter, query) = filterAndQuery
         DashboardUiState(
             continueWatching = continueList,
             collections = filtered,
             selectedFilter = filter,
             searchQuery = query,
-            scanState = scan,
-            enrichState = enrich
+            scanState = scan
         )
     }.stateIn(
         scope = viewModelScope,
@@ -87,14 +81,6 @@ class DashboardViewModel(
 
     fun dismissScanBanner() {
         repository.dismissScanState()
-    }
-
-    fun dismissEnrichState() {
-        metadataEnricher.dismissState()
-    }
-
-    fun dismissEnrichBanner() {
-        metadataEnricher.dismissState()
     }
 
     fun onSearchQueryChanged(newQuery: String) {

@@ -93,7 +93,6 @@ fun SeriesDetailScreen(
                     .aspectRatio(16f / 9f)
             ) {
                 VideoThumbnail(
-                    posterUrl = series.backdropUrl ?: series.posterUrl,
                     mediaStoreId = series.coverMediaStoreId,
                     modifier = Modifier.fillMaxSize()
                 )
@@ -150,29 +149,6 @@ fun SeriesDetailScreen(
                     Text(text = "•", color = CinemaTextSecondary)
                     val epsCountText = "${episodes.size} Episode"
                     Text(text = epsCountText, color = CinemaTextSecondary, fontSize = 13.sp)
-
-                    if (!series.genres.isNullOrBlank()) {
-                        Text(text = "•", color = CinemaTextSecondary)
-                        Text(
-                            text = series.genres,
-                            color = CinemaSecondary,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-
-                // AI Synopsis
-                if (!series.synopsis.isNullOrBlank()) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = series.synopsis,
-                        color = CinemaTextSecondary,
-                        fontSize = 13.sp,
-                        lineHeight = 19.sp
-                    )
                 }
 
                 Spacer(modifier = Modifier.height(18.dp))

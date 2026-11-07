@@ -46,7 +46,7 @@ fun AppNavGraph(
     ) {
         composable(Destinations.DASHBOARD) {
             val dashboardViewModel: DashboardViewModel = viewModel {
-                DashboardViewModel(container.libraryRepository, container.metadataEnricher)
+                DashboardViewModel(container.libraryRepository)
             }
 
             DashboardScreen(
@@ -99,7 +99,7 @@ fun AppNavGraph(
 
         composable(Destinations.SETTINGS) {
             val settingsViewModel: SettingsViewModel = viewModel {
-                SettingsViewModel(container.settingsRepository, container.libraryRepository, container.metadataEnricher)
+                SettingsViewModel(container.settingsRepository, container.libraryRepository)
             }
 
             SettingsScreen(

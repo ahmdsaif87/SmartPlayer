@@ -233,7 +233,6 @@ private fun HistoryItemCard(
                     .clip(RoundedCornerShape(8.dp))
             ) {
                 VideoThumbnail(
-                    posterUrl = null,
                     mediaStoreId = item.mediaStoreId,
                     modifier = Modifier.fillMaxSize()
                 )

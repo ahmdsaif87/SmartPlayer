@@ -37,34 +37,8 @@ interface SeriesDao {
     @Update
     suspend fun update(series: SeriesEntity)
 
-    @Query("""
-        UPDATE series 
-        SET posterUrl = :poster, 
-            backdropUrl = :backdrop, 
-            synopsis = :synopsis, 
-            genres = :genres, 
-            totalSeasonEpisodes = :totalEps 
-        WHERE id = :seriesId
-    """)
-    suspend fun updateMetadata(
-        seriesId: Long,
-        poster: String?,
-        backdrop: String?,
-        synopsis: String?,
-        genres: String?,
-        totalEps: Int?
-    )
-
     @Query("UPDATE series SET lastUpdatedSec = :lastUpdatedSec, coverMediaStoreId = :coverId WHERE id = :seriesId")
     suspend fun updateTimestamps(seriesId: Long, lastUpdatedSec: Long, coverId: Long?)
-
-    @Query("""
-        SELECT * FROM series 
-        WHERE synopsis IS NULL OR synopsis = '' 
-           OR posterUrl IS NULL OR posterUrl = '' 
-           OR posterUrl NOT LIKE '%static.tvmaze.com%'
-    """)
-    suspend fun getSeriesNeedingEnrichment(): List<SeriesEntity>
 
     @Query("SELECT * FROM series")
     suspend fun getAllSeries(): List<SeriesEntity>

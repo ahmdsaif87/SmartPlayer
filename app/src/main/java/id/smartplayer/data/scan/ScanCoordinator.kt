@@ -33,10 +33,6 @@ class ScanCoordinator(
 
     private var scanJob: Job? = null
 
-    // Callback invoked when new series are added so AI metadata enricher can process them
-    var onNewSeriesDiscovered: ((List<Long>) -> Unit)? = null
-    var onScanCompleted: (() -> Unit)? = null
-
     fun requestScan(): Job {
         scanJob?.cancel()
         val job = externalScope.launch {
@@ -172,11 +168,6 @@ class ScanCoordinator(
 
             Log.d("SmartPlayer", "Scan finished: added=$addedCount, updated=$updatedCount, removed=${removedIds.size}")
             _scanState.value = ScanState.Done(added = addedCount, updated = updatedCount, removed = removedIds.size)
-
-            if (newlyCreatedSeriesIds.isNotEmpty()) {
-                onNewSeriesDiscovered?.invoke(newlyCreatedSeriesIds)
-            }
-            onScanCompleted?.invoke()
         } catch (t: Throwable) {
             Log.e("SmartPlayer", "Scan failed with error", t)
             _scanState.value = ScanState.Error(t)

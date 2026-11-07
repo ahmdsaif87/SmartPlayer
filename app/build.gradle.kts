@@ -86,9 +86,6 @@ dependencies {
     // Image Loading (Coil)
     implementation(libs.coil.compose)
 
-    // AI - Gemini
-    implementation(libs.google.generativeai)
-
     // Testing
     testImplementation(libs.junit)
     testImplementation(libs.junit.jupiter.api)

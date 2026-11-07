@@ -25,8 +25,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import coil.compose.SubcomposeAsyncImage
-import coil.request.ImageRequest
 import id.smartplayer.ui.theme.CinemaSurfaceVariant
 import id.smartplayer.ui.theme.CinemaTextSecondary
 import kotlinx.coroutines.Dispatchers
@@ -34,16 +32,16 @@ import kotlinx.coroutines.withContext
 
 @Composable
 fun VideoThumbnail(
-    posterUrl: String?,
     mediaStoreId: Long?,
     modifier: Modifier = Modifier,
+    posterUrl: String? = null,
     contentScale: ContentScale = ContentScale.Crop
 ) {
     val context = LocalContext.current
     var localBitmap by remember(mediaStoreId) { mutableStateOf<Bitmap?>(null) }
 
-    LaunchedEffect(mediaStoreId) {
-        if (mediaStoreId != null && mediaStoreId > 0) {
+    if (mediaStoreId != null && mediaStoreId > 0) {
+        LaunchedEffect(mediaStoreId) {
             withContext(Dispatchers.IO) {
                 try {
                     val uri = ContentUris.withAppendedId(
@@ -51,7 +49,7 @@ fun VideoThumbnail(
                         mediaStoreId
                     )
                     val bmp = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                        context.contentResolver.loadThumbnail(uri, Size(480, 720), null)
+                        context.contentResolver.loadThumbnail(uri, Size(480, 270), null)
                     } else {
                         @Suppress("DEPRECATION")
                         MediaStore.Video.Thumbnails.getThumbnail(
@@ -67,50 +65,17 @@ fun VideoThumbnail(
                 }
             }
         }
-    }
 
-    if (!posterUrl.isNullOrBlank()) {
-        SubcomposeAsyncImage(
-            model = ImageRequest.Builder(context)
-                .data(posterUrl)
-                .crossfade(true)
-                .setHeader("User-Agent", "SmartPlayer/1.0")
-                .build(),
-            contentDescription = null,
-            contentScale = contentScale,
-            modifier = modifier,
-            loading = {
-                if (localBitmap != null) {
-                    Image(
-                        bitmap = localBitmap!!.asImageBitmap(),
-                        contentDescription = null,
-                        contentScale = contentScale,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                } else {
-                    PlaceholderThumbnail(Modifier.fillMaxSize())
-                }
-            },
-            error = {
-                if (localBitmap != null) {
-                    Image(
-                        bitmap = localBitmap!!.asImageBitmap(),
-                        contentDescription = null,
-                        contentScale = contentScale,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                } else {
-                    PlaceholderThumbnail(Modifier.fillMaxSize())
-                }
-            }
-        )
-    } else if (localBitmap != null) {
-        Image(
-            bitmap = localBitmap!!.asImageBitmap(),
-            contentDescription = null,
-            contentScale = contentScale,
-            modifier = modifier
-        )
+        if (localBitmap != null) {
+            Image(
+                bitmap = localBitmap!!.asImageBitmap(),
+                contentDescription = null,
+                contentScale = contentScale,
+                modifier = modifier
+            )
+        } else {
+            PlaceholderThumbnail(modifier)
+        }
     } else {
         PlaceholderThumbnail(modifier)
     }
