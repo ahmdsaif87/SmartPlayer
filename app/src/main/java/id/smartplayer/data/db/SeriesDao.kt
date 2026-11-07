@@ -58,6 +58,12 @@ interface SeriesDao {
     @Query("UPDATE series SET lastUpdatedSec = :lastUpdatedSec, coverMediaStoreId = :coverId WHERE id = :seriesId")
     suspend fun updateTimestamps(seriesId: Long, lastUpdatedSec: Long, coverId: Long?)
 
+    @Query("SELECT * FROM series WHERE synopsis IS NULL OR posterUrl IS NULL")
+    suspend fun getSeriesNeedingEnrichment(): List<SeriesEntity>
+
+    @Query("SELECT * FROM series")
+    suspend fun getAllSeries(): List<SeriesEntity>
+
     @Query("DELETE FROM series WHERE id NOT IN (SELECT DISTINCT seriesId FROM episodes)")
     suspend fun deleteOrphans()
 

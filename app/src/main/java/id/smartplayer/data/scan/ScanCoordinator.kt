@@ -35,6 +35,7 @@ class ScanCoordinator(
 
     // Callback invoked when new series are added so AI metadata enricher can process them
     var onNewSeriesDiscovered: ((List<Long>) -> Unit)? = null
+    var onScanCompleted: (() -> Unit)? = null
 
     fun requestScan(): Job {
         scanJob?.cancel()
@@ -171,6 +172,7 @@ class ScanCoordinator(
             if (newlyCreatedSeriesIds.isNotEmpty()) {
                 onNewSeriesDiscovered?.invoke(newlyCreatedSeriesIds)
             }
+            onScanCompleted?.invoke()
         } catch (t: Throwable) {
             Log.e("SmartPlayer", "Scan failed with error", t)
             _scanState.value = ScanState.Error(t)

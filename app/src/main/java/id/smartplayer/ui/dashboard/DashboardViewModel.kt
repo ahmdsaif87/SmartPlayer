@@ -2,6 +2,8 @@ package id.smartplayer.ui.dashboard
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import id.smartplayer.data.ai.EnrichState
+import id.smartplayer.data.ai.MetadataEnricher
 import id.smartplayer.data.db.entities.EpisodeRow
 import id.smartplayer.data.db.entities.SeriesSummary
 import id.smartplayer.data.repo.LibraryRepository
@@ -27,11 +29,13 @@ data class DashboardUiState(
     val collections: List<SeriesSummary> = emptyList(),
     val selectedFilter: DashboardFilter = DashboardFilter.ALL,
     val searchQuery: String = "",
-    val scanState: ScanState = ScanState.Idle
+    val scanState: ScanState = ScanState.Idle,
+    val enrichState: EnrichState = EnrichState.Idle
 )
 
 class DashboardViewModel(
-    private val repository: LibraryRepository
+    private val repository: LibraryRepository,
+    private val metadataEnricher: MetadataEnricher
 ) : ViewModel() {
 
     private val _searchQuery = MutableStateFlow("")
@@ -40,18 +44,14 @@ class DashboardViewModel(
     private val _selectedFilter = MutableStateFlow(DashboardFilter.ALL)
     val selectedFilter: StateFlow<DashboardFilter> = _selectedFilter.asStateFlow()
 
-    val uiState: StateFlow<DashboardUiState> = combine(
+    private val contentFlow = combine(
         repository.observeDashboard(),
         repository.observeContinueWatching(),
         _selectedFilter,
-        _searchQuery,
-        repository.scanState
-    ) { allSeries, continueList, filter, query, scan ->
+        _searchQuery
+    ) { allSeries, continueList, filter, query ->
         val filtered = allSeries.filter { series ->
-            // Search query filter
             val matchesQuery = query.isBlank() || series.displayTitle.contains(query, ignoreCase = true)
-
-            // Category pill filter
             val matchesFilter = when (filter) {
                 DashboardFilter.ALL -> true
                 DashboardFilter.IN_PROGRESS -> series.finishedCount in 1 until series.episodeCount
@@ -60,22 +60,34 @@ class DashboardViewModel(
                 DashboardFilter.MOVIES -> series.isMovie
                 DashboardFilter.FINISHED -> series.isFinished
             }
-
             matchesQuery && matchesFilter
         }
+        Triple(continueList, filtered, filter to query)
+    }
 
+    val uiState: StateFlow<DashboardUiState> = combine(
+        contentFlow,
+        repository.scanState,
+        metadataEnricher.enrichState
+    ) { (continueList, filtered, filterAndQuery), scan, enrich ->
+        val (filter, query) = filterAndQuery
         DashboardUiState(
             continueWatching = continueList,
             collections = filtered,
             selectedFilter = filter,
             searchQuery = query,
-            scanState = scan
+            scanState = scan,
+            enrichState = enrich
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = DashboardUiState()
     )
+
+    fun dismissEnrichState() {
+        metadataEnricher.dismissState()
+    }
 
     fun onSearchQueryChanged(newQuery: String) {
         _searchQuery.value = newQuery

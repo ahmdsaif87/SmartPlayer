@@ -289,7 +289,7 @@ fun PlayerScreen(
                         )
                         setApplyEmbeddedStyles(false)
                         setApplyEmbeddedFontSizes(false)
-                        setFractionalTextSize(SubtitleView.DEFAULT_TEXT_SIZE_FRACTION * 0.78f)
+                        setFractionalTextSize(SubtitleView.DEFAULT_TEXT_SIZE_FRACTION * 0.92f)
                         setBottomPaddingFraction(0.06f)
                     }
                 }
@@ -313,7 +313,7 @@ fun PlayerScreen(
                     )
                     setApplyEmbeddedStyles(false)
                     setApplyEmbeddedFontSizes(false)
-                    setFractionalTextSize(SubtitleView.DEFAULT_TEXT_SIZE_FRACTION * 0.78f)
+                    setFractionalTextSize(SubtitleView.DEFAULT_TEXT_SIZE_FRACTION * 0.92f)
                     setBottomPaddingFraction(0.06f)
                 }
             },

@@ -29,6 +29,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
@@ -72,6 +73,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
+import id.smartplayer.data.ai.EnrichState
 import id.smartplayer.data.db.entities.EpisodeRow
 import id.smartplayer.data.db.entities.SeriesSummary
 import id.smartplayer.data.scan.ScanState
@@ -312,6 +314,102 @@ fun DashboardScreen(
                                 tint = Color.White.copy(alpha = 0.8f),
                                 modifier = Modifier.size(16.dp)
                             )
+                        }
+                    }
+                }
+                else -> {}
+            }
+        }
+
+        // --- Live AI Enrichment Status Feedback Banner ---
+        var isEnrichBannerDismissed by remember(uiState.enrichState) { mutableStateOf(false) }
+
+        LaunchedEffect(uiState.enrichState) {
+            if (uiState.enrichState is EnrichState.Completed) {
+                delay(6000)
+                isEnrichBannerDismissed = true
+            }
+        }
+
+        if (!isEnrichBannerDismissed) {
+            when (val es = uiState.enrichState) {
+                is EnrichState.Progress -> {
+                    val progress = if (es.total > 0) es.processed.toFloat() / es.total else 0f
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFF312E81))
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 7.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            CircularProgressIndicator(
+                                color = CinemaSecondary,
+                                modifier = Modifier.size(14.dp),
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "AI Gemini: Mengunduh poster & sinopsis \"${es.currentTitle}\" (${es.processed}/${es.total})...",
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        LinearProgressIndicator(
+                            progress = { progress },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(2.dp),
+                            color = CinemaSecondary,
+                            trackColor = CinemaProgressBg
+                        )
+                    }
+                }
+                is EnrichState.Completed -> {
+                    if (es.enrichedCount > 0) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color(0xFF1E1B4B))
+                                .padding(horizontal = 16.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.AutoAwesome,
+                                    contentDescription = null,
+                                    tint = CinemaSecondary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "AI Gemini: Selesai memperbarui ${es.enrichedCount} poster & sinopsis.",
+                                    color = Color.White,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                            IconButton(
+                                onClick = { isEnrichBannerDismissed = true },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Tutup",
+                                    tint = Color.White.copy(alpha = 0.8f),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
                         }
                     }
                 }

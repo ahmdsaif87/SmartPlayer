@@ -16,8 +16,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
@@ -27,6 +29,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Switch
@@ -44,13 +47,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import id.smartplayer.data.ai.EnrichState
 import id.smartplayer.data.scan.ScanState
 import id.smartplayer.ui.theme.CinemaBackground
 import id.smartplayer.ui.theme.CinemaPrimary
+import id.smartplayer.ui.theme.CinemaProgressBg
 import id.smartplayer.ui.theme.CinemaSecondary
 import id.smartplayer.ui.theme.CinemaSurface
 import id.smartplayer.ui.theme.CinemaSurfaceVariant
 import id.smartplayer.ui.theme.CinemaTextPrimary
+import id.smartplayer.ui.theme.CinemaTextSecondary
 import id.smartplayer.ui.theme.CinemaTextSecondary
 
 @Composable
@@ -187,6 +193,149 @@ fun SettingsScreen(
                     ) {
                         Text("Simpan Key", color = Color.White, fontSize = 13.sp)
                     }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                val enrichState by viewModel.enrichState.collectAsState()
+                val isEnriching = enrichState is EnrichState.Progress
+
+                Button(
+                    onClick = { viewModel.triggerEnrichAll(force = false) },
+                    enabled = !isEnriching && inputKey.isNotBlank(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = CinemaSurfaceVariant,
+                        disabledContainerColor = CinemaSurfaceVariant.copy(alpha = 0.5f)
+                    ),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (isEnriching) {
+                        CircularProgressIndicator(
+                            color = CinemaPrimary,
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        val p = enrichState as EnrichState.Progress
+                        Text(
+                            text = "Memperkaya: ${p.currentTitle} (${p.processed}/${p.total})...",
+                            color = Color.White,
+                            fontSize = 13.sp
+                        )
+                    } else {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.AutoAwesome,
+                                contentDescription = null,
+                                tint = CinemaPrimary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Sinkronkan Poster & Sinopsis AI Sekarang",
+                                color = Color.White,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                }
+
+                when (val es = enrichState) {
+                    is EnrichState.Progress -> {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        val progress = if (es.total > 0) es.processed.toFloat() / es.total else 0f
+                        LinearProgressIndicator(
+                            progress = { progress },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(3.dp),
+                            color = CinemaPrimary,
+                            trackColor = CinemaProgressBg
+                        )
+                    }
+                    is EnrichState.Completed -> {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = Color(0xFF22C55E),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = if (es.enrichedCount > 0) {
+                                        "Sukses: ${es.enrichedCount} serial berhasil diperkaya dengan poster & sinopsis."
+                                    } else {
+                                        "Semua serial sudah memiliki poster & sinopsis lengkap."
+                                    },
+                                    color = Color(0xFF22C55E),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                            IconButton(
+                                onClick = { viewModel.dismissEnrichState() },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Tutup",
+                                    tint = CinemaTextSecondary,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                        }
+                    }
+                    is EnrichState.Error -> {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Warning,
+                                    contentDescription = null,
+                                    tint = Color(0xFFEF4444),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = es.message,
+                                    color = Color(0xFFEF4444),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                            IconButton(
+                                onClick = { viewModel.dismissEnrichState() },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Tutup",
+                                    tint = CinemaTextSecondary,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                        }
+                    }
+                    else -> {}
                 }
             }
         }
