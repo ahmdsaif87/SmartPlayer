@@ -21,6 +21,9 @@ interface PlaybackStateDao {
     @Query("DELETE FROM playback_state WHERE updatedAtEpochMs < :cutoff AND fingerprint NOT IN (SELECT fingerprint FROM episodes)")
     suspend fun purgeStale(cutoff: Long)
 
+    @Query("DELETE FROM playback_state WHERE fingerprint NOT IN (SELECT fingerprint FROM episodes)")
+    suspend fun purgeOrphans()
+
     @Query("DELETE FROM playback_state")
     suspend fun clearAll()
 }

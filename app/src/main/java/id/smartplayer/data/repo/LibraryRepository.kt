@@ -34,6 +34,21 @@ class LibraryRepository(
     suspend fun getEpisodes(seriesId: Long): List<EpisodeRow> =
         database.episodeDao().getEpisodes(seriesId)
 
+    suspend fun deleteEpisodesByMediaStoreIds(mediaStoreIds: List<Long>) {
+        if (mediaStoreIds.isEmpty()) return
+        database.episodeDao().deleteByMediaStoreIds(mediaStoreIds)
+        database.playbackStateDao().purgeOrphans()
+        database.seriesDao().deleteOrphans()
+    }
+
+    suspend fun deleteSeries(seriesId: Long) {
+        val episodes = database.episodeDao().getEpisodes(seriesId)
+        val ids = episodes.map { it.mediaStoreId }
+        database.episodeDao().deleteByMediaStoreIds(ids)
+        database.playbackStateDao().purgeOrphans()
+        database.seriesDao().deleteById(seriesId)
+    }
+
     fun requestScan() = scanCoordinator.requestScan()
 
     fun dismissScanState() = scanCoordinator.dismissScanState()

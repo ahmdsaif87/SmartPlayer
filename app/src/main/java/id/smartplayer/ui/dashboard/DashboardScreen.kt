@@ -1,8 +1,12 @@
 package id.smartplayer.ui.dashboard
 
+import android.app.Activity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -39,6 +43,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -53,6 +58,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -65,6 +71,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -86,6 +93,7 @@ import id.smartplayer.ui.theme.CinemaSurfaceVariant
 import id.smartplayer.ui.theme.CinemaTextPrimary
 import id.smartplayer.ui.theme.CinemaTextSecondary
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun DashboardScreen(
     viewModel: DashboardViewModel,
@@ -94,9 +102,20 @@ fun DashboardScreen(
     onSettingsClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     val focusManager = LocalFocusManager.current
     var isSearchExpanded by remember { mutableStateOf(false) }
+
+    val deleteLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            viewModel.onDeleteConfirmed()
+        } else {
+            viewModel.dismissDeleteDialog()
+        }
+    }
 
     Column(
         modifier = modifier
@@ -372,23 +391,71 @@ fun DashboardScreen(
                 items(uiState.collections, key = { it.id }) { series ->
                     SeriesCard(
                         series = series,
-                        onClick = { onSeriesClick(series.id) }
+                        onClick = { onSeriesClick(series.id) },
+                        onLongClick = { viewModel.requestDeleteSeries(series) }
                     )
                 }
             }
         }
     }
+
+    // --- Delete Series Confirmation Dialog ---
+    if (uiState.pendingDeleteSeries != null) {
+        val series = uiState.pendingDeleteSeries!!
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissDeleteDialog() },
+            title = {
+                Text(
+                    text = "Hapus Seri?",
+                    color = CinemaTextPrimary,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp
+                )
+            },
+            text = {
+                Text(
+                    text = "Hapus serial \"${series.displayTitle}\"? Semua ${series.episodeCount} episode akan dihapus secara permanen dari penyimpanan perangkat.",
+                    color = CinemaTextSecondary,
+                    fontSize = 14.sp
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.executeDeleteSeries(context) { request ->
+                            deleteLauncher.launch(request)
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = CinemaPrimary)
+                ) {
+                    Text("Hapus", color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.dismissDeleteDialog() }) {
+                    Text("Batal", color = CinemaTextSecondary)
+                }
+            },
+            containerColor = CinemaSurface,
+            shape = RoundedCornerShape(12.dp)
+        )
+    }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun SeriesCard(
     series: SeriesSummary,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onLongClick: () -> Unit
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            ),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = CinemaSurface)
     ) {

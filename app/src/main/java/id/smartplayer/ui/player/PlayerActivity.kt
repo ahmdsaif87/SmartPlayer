@@ -5,7 +5,9 @@ import android.content.Context
 import android.content.Intent
 import android.media.AudioManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.SystemClock
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -82,6 +84,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.SeekParameters
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.PlayerView
@@ -106,6 +109,14 @@ class PlayerActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Smooth window transition on entry
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            overrideActivityTransition(Activity.OVERRIDE_TRANSITION_OPEN, android.R.anim.fade_in, android.R.anim.fade_out)
+        } else {
+            @Suppress("DEPRECATION")
+            overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+        }
 
         // Keep screen on
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -140,6 +151,17 @@ class PlayerActivity : ComponentActivity() {
         insetsController.hide(WindowInsetsCompat.Type.systemBars())
         insetsController.systemBarsBehavior =
             WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+    }
+
+    override fun finish() {
+        super.finish()
+        // Smooth window transition on exit
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            overrideActivityTransition(Activity.OVERRIDE_TRANSITION_CLOSE, android.R.anim.fade_in, android.R.anim.fade_out)
+        } else {
+            @Suppress("DEPRECATION")
+            overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+        }
     }
 
     override fun onPause() {
@@ -179,8 +201,31 @@ fun PlayerScreen(
     val uiState by viewModel.uiState.collectAsState()
 
     val exoPlayer = remember {
-        ExoPlayer.Builder(context).build().apply {
-            playWhenReady = true
+        ExoPlayer.Builder(context)
+            .setSeekParameters(SeekParameters.EXACT)
+            .build().apply {
+                playWhenReady = true
+            }
+    }
+
+    // Throttled scrub seeking for ultra-smooth preview frames during tracker dragging
+    var lastScrubSeekTime by remember { mutableLongStateOf(0L) }
+    val onScrubSeek: (Long) -> Unit = remember(exoPlayer) {
+        { targetMs ->
+            val now = SystemClock.elapsedRealtime()
+            if (now - lastScrubSeekTime >= 70L) {
+                lastScrubSeekTime = now
+                exoPlayer.setSeekParameters(SeekParameters.CLOSEST_SYNC)
+                exoPlayer.seekTo(targetMs)
+            }
+        }
+    }
+
+    val onScrubFinished: (Long) -> Unit = remember(exoPlayer) {
+        { finalMs ->
+            exoPlayer.setSeekParameters(SeekParameters.EXACT)
+            exoPlayer.seekTo(finalMs)
+            viewModel.onPositionChanged(finalMs, exoPlayer.duration.coerceAtLeast(0L))
         }
     }
 
@@ -252,11 +297,13 @@ fun PlayerScreen(
                             if (offset.x < screenWidth / 2) {
                                 // Double tap left: seek -10s
                                 val newPos = (exoPlayer.currentPosition - 10000L).coerceAtLeast(0L)
+                                exoPlayer.setSeekParameters(SeekParameters.DEFAULT)
                                 exoPlayer.seekTo(newPos)
                                 viewModel.seekRelative(-10000L)
                             } else {
                                 // Double tap right: seek +10s
                                 val newPos = (exoPlayer.currentPosition + 10000L).coerceAtMost(exoPlayer.duration)
+                                exoPlayer.setSeekParameters(SeekParameters.DEFAULT)
                                 exoPlayer.seekTo(newPos)
                                 viewModel.seekRelative(10000L)
                             }
@@ -271,6 +318,8 @@ fun PlayerScreen(
                 PlayerView(ctx).apply {
                     player = exoPlayer
                     useController = false
+                    setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
+                    keepScreenOn = true
                     resizeMode = when (uiState.resizeMode) {
                         ResizeMode.FIT -> AspectRatioFrameLayout.RESIZE_MODE_FIT
                         ResizeMode.ZOOM -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
@@ -351,7 +400,8 @@ fun PlayerScreen(
                 onPlayPauseToggle = {
                     if (exoPlayer.isPlaying) exoPlayer.pause() else exoPlayer.play()
                 },
-                onSeekTo = { newPos -> exoPlayer.seekTo(newPos) },
+                onScrubSeek = onScrubSeek,
+                onScrubFinished = onScrubFinished,
                 onPrevious = { if (exoPlayer.hasPreviousMediaItem()) exoPlayer.seekToPreviousMediaItem() },
                 onNext = { if (exoPlayer.hasNextMediaItem()) exoPlayer.seekToNextMediaItem() },
                 onToggleLock = { viewModel.toggleLock() },
@@ -405,7 +455,8 @@ private fun PlayerOverlayControls(
     uiState: PlayerUiState,
     onClose: () -> Unit,
     onPlayPauseToggle: () -> Unit,
-    onSeekTo: (Long) -> Unit,
+    onScrubSeek: (Long) -> Unit,
+    onScrubFinished: (Long) -> Unit,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
     onToggleLock: () -> Unit,
@@ -416,6 +467,13 @@ private fun PlayerOverlayControls(
     val current = uiState.currentEpisode
     val pos = uiState.currentPositionMs
     val dur = uiState.durationMs
+
+    // Local dragging state for ultra-smooth 60/120fps slider motion
+    var isDragging by remember { mutableStateOf(false) }
+    var dragFraction by remember { mutableFloatStateOf(0f) }
+
+    val currentProgress = if (isDragging) dragFraction else if (dur > 0) (pos.toFloat() / dur).coerceIn(0f, 1f) else 0f
+    val displayedPos = if (isDragging) (dragFraction * dur).toLong().coerceIn(0L, dur) else pos
 
     Box(
         modifier = Modifier
@@ -540,29 +598,60 @@ private fun PlayerOverlayControls(
                 .padding(horizontal = 24.dp, vertical = 12.dp)
                 .align(Alignment.BottomCenter)
         ) {
+            // Scrub tooltip bubble while dragging
+            if (isDragging) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 6.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .background(Color(0xDD15151E), RoundedCornerShape(16.dp))
+                            .padding(horizontal = 14.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            text = "${formatMs(displayedPos)} / ${formatMs(dur)}",
+                            color = Color.White,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
             // Timeline Time labels
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = formatMs(pos),
+                    text = formatMs(displayedPos),
                     color = Color.White,
-                    fontSize = 12.sp
+                    fontSize = 12.sp,
+                    fontWeight = if (isDragging) FontWeight.Bold else FontWeight.Normal
                 )
                 Text(
-                    text = "-${formatMs((dur - pos).coerceAtLeast(0L))}",
+                    text = "-${formatMs((dur - displayedPos).coerceAtLeast(0L))}",
                     color = CinemaTextSecondary,
                     fontSize = 12.sp
                 )
             }
 
             // Slider Scrub Bar
-            val sliderValue = if (dur > 0) pos.toFloat() / dur else 0f
             Slider(
-                value = sliderValue,
+                value = currentProgress,
                 onValueChange = { frac ->
-                    onSeekTo((frac * dur).toLong())
+                    isDragging = true
+                    dragFraction = frac
+                    val targetMs = (frac * dur).toLong()
+                    onScrubSeek(targetMs)
+                },
+                onValueChangeFinished = {
+                    val finalMs = (dragFraction * dur).toLong()
+                    onScrubFinished(finalMs)
+                    isDragging = false
                 },
                 colors = SliderDefaults.colors(
                     thumbColor = CinemaPrimary,

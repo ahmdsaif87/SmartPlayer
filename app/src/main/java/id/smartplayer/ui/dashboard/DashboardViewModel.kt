@@ -1,17 +1,22 @@
 package id.smartplayer.ui.dashboard
 
+import android.content.Context
+import android.net.Uri
+import androidx.activity.result.IntentSenderRequest
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import id.smartplayer.data.db.entities.EpisodeRow
 import id.smartplayer.data.db.entities.SeriesSummary
 import id.smartplayer.data.repo.LibraryRepository
 import id.smartplayer.data.scan.ScanState
+import id.smartplayer.ui.common.MediaDeleteHelper
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 enum class DashboardFilter {
     ALL,
@@ -27,7 +32,8 @@ data class DashboardUiState(
     val collections: List<SeriesSummary> = emptyList(),
     val selectedFilter: DashboardFilter = DashboardFilter.ALL,
     val searchQuery: String = "",
-    val scanState: ScanState = ScanState.Idle
+    val scanState: ScanState = ScanState.Idle,
+    val pendingDeleteSeries: SeriesSummary? = null
 )
 
 class DashboardViewModel(
@@ -39,6 +45,9 @@ class DashboardViewModel(
 
     private val _selectedFilter = MutableStateFlow(DashboardFilter.ALL)
     val selectedFilter: StateFlow<DashboardFilter> = _selectedFilter.asStateFlow()
+
+    private val _pendingDeleteSeries = MutableStateFlow<SeriesSummary?>(null)
+    private var pendingDeleteMediaStoreIds: List<Long> = emptyList()
 
     private val contentFlow = combine(
         repository.observeDashboard(),
@@ -63,15 +72,17 @@ class DashboardViewModel(
 
     val uiState: StateFlow<DashboardUiState> = combine(
         contentFlow,
-        repository.scanState
-    ) { (continueList, filtered, filterAndQuery), scan ->
+        repository.scanState,
+        _pendingDeleteSeries
+    ) { (continueList, filtered, filterAndQuery), scan, pendingDelete ->
         val (filter, query) = filterAndQuery
         DashboardUiState(
             continueWatching = continueList,
             collections = filtered,
             selectedFilter = filter,
             searchQuery = query,
-            scanState = scan
+            scanState = scan,
+            pendingDeleteSeries = pendingDelete
         )
     }.stateIn(
         scope = viewModelScope,
@@ -93,5 +104,52 @@ class DashboardViewModel(
 
     fun requestRescan() {
         repository.requestScan()
+    }
+
+    fun requestDeleteSeries(series: SeriesSummary) {
+        _pendingDeleteSeries.value = series
+    }
+
+    fun dismissDeleteDialog() {
+        _pendingDeleteSeries.value = null
+        pendingDeleteMediaStoreIds = emptyList()
+    }
+
+    fun executeDeleteSeries(
+        context: Context,
+        onLaunchSender: (IntentSenderRequest) -> Unit
+    ) {
+        val series = _pendingDeleteSeries.value ?: return
+        viewModelScope.launch {
+            val episodes = repository.getEpisodes(series.id)
+            if (episodes.isEmpty()) {
+                repository.deleteSeries(series.id)
+                dismissDeleteDialog()
+                return@launch
+            }
+            val uris = episodes.map { Uri.parse(it.contentUri) }
+            val mediaStoreIds = episodes.map { it.mediaStoreId }
+            pendingDeleteMediaStoreIds = mediaStoreIds
+
+            val intentSenderRequest = MediaDeleteHelper.buildDeleteIntentSender(context, uris)
+            if (intentSenderRequest != null) {
+                onLaunchSender(intentSenderRequest)
+            } else {
+                val success = MediaDeleteHelper.deleteDirectly(context, uris)
+                if (success) {
+                    onDeleteConfirmed()
+                } else {
+                    dismissDeleteDialog()
+                }
+            }
+        }
+    }
+
+    fun onDeleteConfirmed() {
+        val ids = pendingDeleteMediaStoreIds
+        viewModelScope.launch {
+            repository.deleteEpisodesByMediaStoreIds(ids)
+            dismissDeleteDialog()
+        }
     }
 }
